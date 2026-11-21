@@ -1,0 +1,33 @@
+name: Deploy website
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare site with research keys
+        env:
+          COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
+          USPTO_API_KEY: ${{ secrets.USPTO_API_KEY }}
+        run: |
+          mkdir _site
+          cp *.html *.js *.mjs *.css *.png *.jpg manifest.webmanifest _site/
+          node -e "require('fs').writeFileSync('_site/keys.js','window.FR_KEYS='+JSON.stringify({courtlistener:process.env.COURTLISTENER_TOKEN||'',uspto:process.env.USPTO_API_KEY||''})+';')"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
