@@ -1,5 +1,3 @@
-pdf-lib.min.js linguist-vendored
-pdf.min.mjs linguist-vendored
-pdf.worker.min.mjs linguist-vendored
-site.html linguist-vendored
-guide.html linguist-vendored
+*.html linguist-detectable=false
+*.min.js linguist-vendored
+*.min.mjs linguist-vendored
