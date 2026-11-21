@@ -20,13 +20,16 @@ jobs:
       - name: Build standalone Android app
         env:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          COURTLISTENER_TOKEN: ${{ secrets.COURTLISTENER_TOKEN }}
+          USPTO_API_KEY: ${{ secrets.USPTO_API_KEY }}
         run: |
           mkdir -p app/www
-          cp index.html guide.html site.html manifest.webmanifest sw.js boot.js pdfjs-init.mjs app.css app.js engine.js rules.js jszip.min.js pdf-lib.min.js pdf.min.mjs pdf.worker.min.mjs *.png *.jpg app/www/
+          cp index.html guide.html site.html manifest.webmanifest sw.js boot.js pdfjs-init.mjs app.css app.js engine.js rules.js keys.js research.js jszip.min.js pdf-lib.min.js pdf.min.mjs pdf.worker.min.mjs *.png *.jpg app/www/
+          node -e "require('fs').writeFileSync('app/www/keys.js','window.FR_KEYS='+JSON.stringify({courtlistener:process.env.COURTLISTENER_TOKEN||'',uspto:process.env.USPTO_API_KEY||''})+';')"
           cd app
           npm init -y
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/filesystem@6 @capacitor/share@6 @capacitor/haptics@6 @capacitor/browser@6 @capacitor/app@6
-          npm install @aparajita/capacitor-biometric-auth@8 || echo "Fingerprint plugin skipped"
+          npm install @capacitor/inappbrowser@1 || echo "In-app browser plugin skipped"
           npm install tesseract.js@5.1.1 tesseract.js-core@5.1.1 || echo "OCR skipped"
           mkdir -p www/ocr/core www/ocr/lang
           cp node_modules/tesseract.js/dist/tesseract.min.js node_modules/tesseract.js/dist/worker.min.js www/ocr/ || true
@@ -36,11 +39,16 @@ jobs:
           npx cap add android
           sed -i 's/android:allowBackup="true"/android:allowBackup="false"/' android/app/src/main/AndroidManifest.xml
           grep -q 'allowBackup="false"' android/app/src/main/AndroidManifest.xml || sed -i 's/<application/<application android:allowBackup="false"/' android/app/src/main/AndroidManifest.xml
-          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          RES=android/app/src/main/res
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
-              cp ../icon-maskable-512.png android/app/src/main/res/mipmap-$d/$f.png
-            done
+            cp ../icon-512.png $RES/mipmap-$d/ic_launcher.png
+            cp ../icon-512.png $RES/mipmap-$d/ic_launcher_round.png
+            cp ../icon-fg-432.png $RES/mipmap-$d/ic_launcher_foreground.png
+            cp ../icon-bg-432.png $RES/mipmap-$d/ic_launcher_background.png
+          done
+          mkdir -p $RES/mipmap-anydpi-v26
+          for n in ic_launcher ic_launcher_round; do
+            printf '<?xml version="1.0" encoding="utf-8"?>\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n  <background android:drawable="@mipmap/ic_launcher_background"/>\n  <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n</adaptive-icon>\n' > $RES/mipmap-anydpi-v26/$n.xml
           done
           npx cap sync android
           cd android
