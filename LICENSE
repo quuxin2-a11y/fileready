@@ -1,0 +1,9 @@
+Copyright (c) 2026 Mark Joseph. All rights reserved.
+
+This source code and the FileReady name, logo and designs are the property of Mark Joseph.
+No license is granted to copy, modify, distribute, sell or use this software, in whole or in part,
+except with written permission from the owner. Viewing the code on GitHub does not grant any rights.
+
+Third-party components keep their own licenses:
+- pdf-lib (pdf-lib.min.js), MIT License, Copyright (c) 2019 Andrew Dillon
+- PDF.js (pdf.min.mjs, pdf.worker.min.mjs), Apache License 2.0, Copyright Mozilla Foundation
