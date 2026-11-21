@@ -8,6 +8,8 @@ Last reviewed: November 2026 (version 1.2).
 | ID | Requirement | Status |
 |---|---|---|
 | DH-1 | Documents are processed only on the device. No document content is sent over the network. | Done |
+| DH-1a | Online research is opt-in per search; only the keywords shown on screen are sent, to the USPTO Open Data Portal or CourtListener. | Done, untested against the live services |
+| DH-1b | Built-in research keys come from GitHub Secrets at build time and are never committed. Users can replace them with their own keys, stored only on their device and never exported. | Done |
 | DH-2 | No account, analytics, ads or tracking. | Done |
 | DH-3 | Files leave the device only when the user taps Share or Save. | Done |
 | DH-4 | Original files are never changed. Every fix creates a new version that can be undone. | Done |
@@ -21,10 +23,10 @@ Last reviewed: November 2026 (version 1.2).
 | ID | Requirement | Status |
 |---|---|---|
 | AC-1 | Optional PIN lock when the app opens. | Done |
-| AC-2 | PIN stored only as a salted, slow hash (PBKDF2-SHA256, 210,000 rounds, random 16-byte salt). Older hashes are upgraded on the next unlock. | Done |
+| AC-2 | PIN stored only as a salted, slow hash (PBKDF2-SHA256, 60,000 rounds, random 16-byte salt). For a 4-digit PIN the attempt limits are the main protection, so the round count is kept low enough to unlock instantly. Older hashes are upgraded on the next unlock. | Done |
 | AC-3 | After 5 wrong PINs, a wait starts at 30 seconds and doubles, up to 1 hour. | Done |
 | AC-4 | The app locks again after 2 minutes in the background. | Done |
-| AC-5 | Fingerprint unlock through the phone's biometrics, with the PIN as fallback. | Untested |
+| AC-5 | PIN only: no fingerprint or face unlock, so no biometric plugin is included. | Done |
 | AC-6 | The PIN is refused if secure browser cryptography is unavailable (no weak fallback). | Done |
 
 ## 3. Untrusted input (PDF and Word files from other parties)
@@ -50,7 +52,7 @@ Last reviewed: November 2026 (version 1.2).
 ## 5. Web version
 | ID | Requirement | Status |
 |---|---|---|
-| WB-1 | Content Security Policy: scripts only from the app and cdn.jsdelivr.net (text recognition); connections only to the app and that CDN; no objects, frames, forms or base changes. | Done |
+| WB-1 | Content Security Policy: scripts only from the app and cdn.jsdelivr.net (text recognition); connections only to the app, that CDN, api.uspto.gov and www.courtlistener.com (research); no objects, frames, forms or base changes. | Done |
 | WB-2 | Guide and website: CSP with no outside connections. | Done |
 | WB-3 | No referrer sent when opening outside links. | Done |
 | WB-4 | Served only over HTTPS (GitHub Pages). | Done when Pages is turned on |

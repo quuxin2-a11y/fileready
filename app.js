@@ -11,7 +11,7 @@
     stack: '<rect x="7" y="3" width="12" height="15" rx="2"/><path d="M5 7v12a2 2 0 0 0 2 2h9"/>',
     rep: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 17v-3M12 17v-5M15 17v-2"/>',
     set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>', ext: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
     hash: '<path d="M5 9h14M5 15h14M10 3L8 21M16 3l-2 18"/>', eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     scrub: '<path d="M4 20h16"/><path d="M14 4l6 6-9 9H5v-6z"/>', shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
     alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
@@ -56,7 +56,7 @@
   function when(t) { var d = new Date(t); return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + ", " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); }
 
   /* ---------- settings ---------- */
-  var DEF = { onboarded: false, name: "", court: "state", state: "TX", area: "civil", region: "none", custom: [], over: {}, theme: "dark", style: "aurora", big: false, pin: "", bio: false,
+  var DEF = { onboarded: false, name: "", court: "state", state: "TX", area: "civil", region: "none", custom: [], over: {}, theme: "dark", style: "aurora", labs: false, big: false, pin: "",
     ex: { style: "A", word: "Exhibit", covers: true, stamp: true, index: true, bookmarks: true, scrub: true, split: false, binder: false, checklist: true },
     bates: { on: true, prefix: "", start: 1, digits: 6, pos: "right" } };
   var S = load();
@@ -128,7 +128,9 @@
   var picker = document.createElement("input"); picker.type = "file"; picker.accept = "application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"; picker.multiple = true; picker.style.display = "none"; document.body.appendChild(picker);
   picker.addEventListener("change", function () { var fl = [].slice.call(picker.files || []); picker.value = ""; if (fl.length) addFiles(fl); });
   async function newFiling(name) { var f = { id: uid(), name: name || "New filing " + new Date().toLocaleDateString(), created: Date.now(), updated: Date.now(), files: [], outputs: [], log: [], dismissed: {} }; await saveF(f); st.filings.unshift(f); st.fid = f.id; return f; }
+  function persist() { try { if (navigator.storage && navigator.storage.persist && !window.Capacitor) navigator.storage.persist(); } catch (e) { } }
   async function addFiles(list) {
+    persist();
     var f = cur() || await newFiling(); st.busy = "Adding files"; render();
     for (var i = 0; i < list.length; i++) {
       var it = list[i], bytes = it.bytes || new Uint8Array(await it.arrayBuffer()), name = it.name || "Document.pdf";
@@ -279,9 +281,12 @@
     try { var file = new File([bytes], name, { type: mime }); if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
     download(bytes, name, mime);
   }
+  var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var STANDALONE = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   async function saveFile(bytes, name) {
     name = clean(name); if (!/\.(pdf|docx|json)$/i.test(name)) name += ".pdf";
     var FS = plug("Filesystem");
+    if (!FS && IOS) { toast("Choose Save to Files"); return share(bytes, name); } /* iPhone: the share sheet has Save to Files */
     if (FS) { try { await FS.writeFile({ path: "FileReady/" + name, data: b64(bytes), directory: "DOCUMENTS", recursive: true }); buzz("ok"); toast("Saved to Documents/FileReady"); return; } catch (e) { toast("Save failed: " + (e.message || e)); return; } }
     download(bytes, name, mimeOf(name));
   }
@@ -403,6 +408,124 @@
     share(bytes, o.name);
   }
 
+  /* ---------- research: patents, cases, filing review ---------- */
+  var X = window.FRX;
+  function rkey(k) { var own = (S.keys || {})[k]; if (own) return { key: own, own: true }; var b = (window.FR_KEYS || {})[k]; return b ? { key: b, own: false } : null; }
+  async function fileText(fileId) { var f = cur(), x = f && byId(fileId); if (!x) return ""; var a = await analysisFor(x, prof()); return (a.pages || []).map(function (pg) { return pg.text || ""; }).join("\n\n"); }
+  function filePicker(id, sel) { var f = cur(); if (!f || !f.files.length) return '<p class="mut sm">Add the document to a filing first, or paste the text below.</p>'; return '<label class="f">Use a file from “' + h(f.name) + '”</label><select class="inp" id="' + id + '"><option value="">Paste text instead</option>' + f.files.map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? " selected" : "") + ">" + h((x.kind === "docx" ? "[Word] " : "") + (x.label || x.name)) + "</option>"; }).join("") + "</select>"; }
+  function pct(p) { var b = X.band(p), col = b === "high" ? "var(--o2)" : b === "medium" ? "var(--y2)" : "var(--g1)"; return '<div class="ovl"><div class="ovb"><i style="width:' + p + "%;background:" + col + '"></i></div><b style="color:' + col + '">' + p + "%</b></div>"; }
+  function sentNote(where) { return '<div class="note glass sm">' + ic("lock", 14) + " Your document stays on this phone. Only the search words below are sent to " + where + ", and only when you tap Search.</div>"; }
+  function keyNote(k, name) { var r = rkey(k); return r ? '<p class="xs mut" style="margin:6px 2px 0">Using ' + (r.own ? "your own " : "the built-in ") + name + " key.</p>" : '<p class="xs mut" style="margin:6px 2px 0">No ' + name + ' key yet. Add one in Settings → Online research.</p>'; }
+  function researchCard() { return '<button class="rxc glass mt" data-a="research"><span class="ic gP">' + ic("book", 22, "#0b0d12") + '</span><span class="tx"><b>Research<span class="beta">BETA</span></b><small>Review a filing and find similar cases</small></span>' + ic("chev", 18) + "</button>"; }
+  function viewResearch() {
+    function card(a, icn, col, t, s, tag) { return '<button class="rxc glass" data-a="' + a + '"><span class="ic ' + col + '">' + ic(icn, 24, "#0b0d12") + '</span><span class="tx"><b>' + t + (tag ? '<span class="beta">' + tag + "</span>" : "") + "</b><small>" + s + "</small></span>" + ic("chev", 18) + "</button>"; }
+    return header("Research", "Patents, case law and filing review", "", true) + '<main class="enter">' +
+      card("rxrev", "eye", "gO", "Review a filing", "Find mistakes in the other side's filing, or in yours before you file, with options and rule citations.", "BETA") +
+      card("rxcase", "book", "gG", "Find similar cases", "Describe your case or use a document; get court opinions with similar issues.", "BETA") +
+      (S.labs ? card("rxpat", "spark", "gP", "Patent check before filing", "Compare your draft with published U.S. patents and applications, with an overlap score for each.", "LABS") : "") +
+      '<p class="xs mut" style="margin:4px 4px 0">Beta tools are new: check every result.' + (S.labs ? " Labs tools are turned on in Settings." : "") + "</p>" +
+      '<p class="disc">Research tools give information, not legal advice. Overlap scores compare wording only and are not a legal opinion on patentability or infringement. Confirm every case and rule before relying on it.</p></main>';
+  }
+  function viewPatent() {
+    var r = st.rx || {}, P = r.pat;
+    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or paste the description and claims</label><textarea class="inp" id="rxt" rows="5" placeholder="Title, abstract and claims of your invention">' + h(r.text || "") + '</textarea><button class="btn mt" data-a="rxpread">' + ic("search", 19, "#04140b", 2.4) + "Read my invention</button></div>";
+    if (!P) return header("Patent check", "Before you file", "", true) + '<main class="enter">' + top + '<p class="disc">Searches published U.S. patents and applications (USPTO Open Data Portal). Information only, not legal advice.</p></main>';
+    var kw = P.keys.map(function (k, i) { return '<button class="chip on" data-a="rxkw" data-v="' + i + '">' + h(k) + " ×</button>"; }).join("");
+    var res = (r.results || []).map(function (x, i) { return '<div class="rxr glass"><div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1;min-width:0"><b>' + h(x.title) + '</b><small class="mut">' + h([x.number, x.who, x.granted ? "granted " + x.granted : x.filed ? "filed " + x.filed : "", x.status].filter(Boolean).join(" · ")) + "</small></div></div>" + pct(x.score) + '<button class="lnk sm" data-a="rxpread1" data-v="' + i + '">Read the claims and compare ' + ic("chev", 13) + "</button>" + "</div>"; }).join("");
+    var hi = (r.results || [])[0], g = hi ? X.band(hi.score) : null;
+    var verdict = hi ? '<div class="hero glass" style="padding:16px"><span class="pill">' + ic("info", 14) + " Closest match " + hi.score + '%</span><h2 style="font-size:1.15rem">' + (g === "high" ? "A close reference exists. Review it before filing." : g === "medium" ? "Some overlap. Make sure your claims cover what is new." : "No close wording found in these results.") + '</h2><p class="mut sm" style="margin:4px 0 0">' + (g === "low" ? "A low score is not a clearance: wording can differ while the idea is the same. A professional search is still recommended." : "Compare its claims with yours element by element, and consider narrowing your claims to the features that are new.") + "</p></div>" : "";
+    var guide = '<div class="sec"><b>Timing and options</b></div><div class="glass list">' + X.PATENT_GUIDE.map(function (gd) { return '<div class="li"><span class="tx"><b>' + h(gd[0]) + "</b><small>" + h(gd[1]) + "</small></span></div>"; }).join("") + "</div>";
+    return header("Patent check", P.title || "Your invention", "", true) + '<main class="enter">' +
+      '<div class="glass list" style="padding:12px 16px"><b>' + (P.claims ? P.claims + " claims found (" + P.indep + " independent)" : "No numbered claims found; using the whole text") + '</b><label class="f">Search words (tap to remove)</label><div class="chips" style="flex-wrap:wrap">' + kw + '</div><input class="inp mt" id="rxadd" placeholder="Add a word and tap Search"></div>' +
+      sentNote("the USPTO") + '<button class="btn mt" data-a="rxpsearch">' + ic("search", 19, "#04140b", 2.4) + 'Search USPTO</button>' + keyNote("uspto", "USPTO") +
+      (r.err ? '<div class="note glass mt">' + h(r.err) + "</div>" : "") + verdict + (res ? '<div class="sec"><b>Closest results</b><span class="xs mut">' + r.results.length + " found</span></div>" + res : "") + guide +
+      '<button class="btn2 glass mt" data-a="rxreset">Check another invention</button><p class="disc">Overlap compares the words of your draft with the title and any summary the USPTO returns, not the full claims. It is not a legal opinion on novelty, obviousness or infringement. Talk to a registered patent attorney or agent before filing.</p></main>';
+  }
+  function viewCases() {
+    var r = st.rx || {}, C = r.cs;
+    var courts = X.COURTS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === (r.court || "") ? " selected" : "") + ">" + c[1] + "</option>"; }).join("");
+    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or describe your case</label><textarea class="inp" id="rxt" rows="5" placeholder="What happened, what you are claiming or defending, and where">' + h(r.text || "") + '</textarea><label class="f">Courts</label><select class="inp" id="rxc">' + courts + '</select><button class="btn mt" data-a="rxcread">' + ic("search", 19, "#04140b", 2.4) + "Find the issues</button></div>";
+    if (!C) return header("Similar cases", "Find precedent", "", true) + '<main class="enter">' + top + '<p class="disc">Searches court opinions on CourtListener (Free Law Project). Information only, not legal advice.</p></main>';
+    var res = (r.results || []).map(function (x, i) { return '<div class="rxr glass"><b>' + h(x.name) + '</b><small class="mut">' + h([x.cite, x.court, x.date, x.cited ? "cited " + x.cited + " times" : ""].filter(Boolean).join(" · ")) + "</small>" + pct(x.score) + (x.snippet ? '<p class="sm mut" style="margin:6px 0">' + h(x.snippet) + "…</p>" : "") + (x.opinionId ? '<button class="lnk sm" data-a="rxcread1" data-v="' + i + '">Read the opinion ' + ic("chev", 13) + "</button>" : "") + "</div>"; }).join("");
+    return header("Similar cases", C.issues.length ? C.issues.join(", ") : "Your case", "", true) + '<main class="enter">' +
+      '<div class="glass list" style="padding:12px 16px"><b>' + (C.issues.length ? "Issues found: " + h(C.issues.join(", ")) : "No standard issue names found; using key words") + '</b><label class="f">Search</label><input class="inp" id="rxq" value="' + h(C.q) + '"><p class="xs mut" style="margin:6px 2px 0">Use quotes for exact phrases, AND / OR to combine.</p></div>' +
+      sentNote("CourtListener") + '<button class="btn mt" data-a="rxcsearch">' + ic("search", 19, "#04140b", 2.4) + 'Search cases</button>' + keyNote("courtlistener", "CourtListener") +
+      (r.err ? '<div class="note glass mt">' + h(r.err) + "</div>" : "") + (res ? '<div class="sec"><b>Most similar</b><span class="xs mut">' + r.results.length + " found</span></div>" + res : "") +
+      '<button class="btn2 glass mt" data-a="rxreset">Search another case</button><p class="disc">Match scores compare wording with the case name and excerpt. Read each opinion, check that it is still good law and that it is binding or persuasive in your court before citing it. Not legal advice.</p></main>';
+  }
+  function viewReview() {
+    var r = st.rx || {}, R = r.rev, f = cur();
+    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or paste the filing text</label><textarea class="inp" id="rxt" rows="4" placeholder="Paste the motion, petition or answer">' + h(r.text || "") + '</textarea><label class="f">Whose filing is it?</label><div class="seg glass"><button class="' + (r.side !== "ours" ? "on" : "") + '" data-a="rxside" data-v="theirs">The other side</button><button class="' + (r.side === "ours" ? "on" : "") + '" data-a="rxside" data-v="ours">Ours, before filing</button></div><button class="btn mt" data-a="rxrev">' + ic("eye", 19, "#04140b", 2.4) + "Review it</button></div>";
+    if (!R) return header("Review a filing", "Find mistakes", "", true) + '<main class="enter">' + top + '<p class="disc">Runs on this phone. Uses ' + h(prof().packName) + " rules. Information only, not legal advice.</p></main>";
+    var rows = R.findings.map(function (x, i) { return '<div class="rxr glass ' + x.sev + '"><b>' + h(x.title) + '<span class="tag">' + (x.sev === "must" ? "IMPORTANT" : "REVIEW") + '</span></b><small class="mut">' + h(x.why) + '</small><div class="n2">Options to consider</div><ul class="opt">' + x.options.map(function (o) { return "<li>" + h(o) + "</li>"; }).join("") + "</ul>" + (x.cite ? '<span class="cite">' + ic("book", 13) + h(x.cite) + "</span>" : "") + (x.q ? '<button class="lnk sm" data-a="rxfind" data-v="' + i + '" style="display:block;margin-top:6px">Find cases on this ' + ic("chev", 13) + "</button>" : "") + "</div>"; }).join("");
+    return header("Review a filing", (r.side === "ours" ? "Our " : "Their ") + R.kind, "", true) + '<main class="enter">' +
+      '<div class="hero glass" style="padding:16px"><span class="pill">' + ic("shield", 14) + " " + h(prof().packShort) + '</span><h2 style="font-size:1.2rem">' + (R.findings.length ? R.findings.length + " thing" + (R.findings.length > 1 ? "s" : "") + " to look at" : "No common mistakes found") + '</h2><p class="mut sm" style="margin:4px 0 0">' + (r.side === "ours" ? "Fix these before the other side finds them." : "Possible issues in the other side's filing, with options to discuss with your attorney.") + "</p></div>" +
+      rows + '<button class="btn2 glass mt" data-a="rxreset">Review another filing</button><p class="disc">These are common, checkable mistakes, not a full legal review. Deadlines, waiver and strategy depend on your case and court. The options listed are things to consider with a licensed attorney, not advice to file anything.</p></main>';
+  }
+  function viewReader() {
+    var d = (st.rx || {}).doc || {}, paras = String(d.text || "").split(/\n{2,}/).filter(function (p) { return p.trim(); }).slice(0, 600);
+    return header(d.kind === "case" ? "Opinion" : "Claims", d.title || "", "", true) + '<main class="enter">' +
+      '<div class="hero glass" style="padding:16px"><span class="pill">' + ic(d.kind === "case" ? "book" : "spark", 14) + " " + h(d.meta || "") + "</span>" + (d.score != null ? '<h2 style="font-size:1.1rem">Wording overlap with ' + (d.kind === "case" ? "your case" : "your claims") + "</h2>" + pct(d.score) : "") + (d.note ? '<p class="mut sm" style="margin:6px 0 0">' + h(d.note) + "</p>" : "") + "</div>" +
+      (d.kind === "case" ? '<div class="row2 mt"><button class="btn2 glass" data-a="rxcopy">' + ic("file", 18) + 'Copy citation</button><button class="btn2 glass" data-a="rxfindin">' + ic("search", 18) + "Find in text</button></div>" : '<button class="btn2 glass mt" data-a="rxfindin">' + ic("search", 18) + "Find in text</button>") +
+      '<article class="reader glass mt">' + (paras.length ? paras.map(function (p) { return "<p>" + hl(h(p.trim())) + "</p>"; }).join("") : '<p class="mut">No text available for this record.</p>') + "</article>" +
+      '<p class="disc">' + (d.kind === "case" ? "Text from CourtListener (Free Law Project). Check that the case is still good law and applies in your court before citing it." : "Claims text from the USPTO file record, read on this phone. Compare claims element by element with a registered patent attorney or agent.") + " Not legal advice.</p></main>";
+  }
+  function hl(t) { var w = (st.rx && st.rx.doc && st.rx.doc.find) || ""; if (!w || w.length < 3) return t; var esc = h(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return t.replace(new RegExp("(" + esc + ")", "gi"), "<mark>$1</mark>"); }
+  async function rxOpenCase(i) {
+    var r = st.rx, x = r.results[i], k = rkey("courtlistener"); if (!k) return toast("Add a CourtListener key in Settings");
+    st.busy = "Loading the opinion"; render();
+    try { var o = await X.opinion(x.opinionId, k.key); r.doc = { kind: "case", title: x.name, meta: [x.cite, x.court, x.date].filter(Boolean).join(" · "), cite: x.name + (x.cite ? ", " + x.cite : "") + (x.date ? " (" + x.date.slice(0, 4) + ")" : ""), text: o.text, score: X.overlap(r.cs.focus, o.text.slice(0, 20000), r.cs.keys.concat(r.cs.issues)), note: o.author ? "Opinion by " + o.author : "" }; r.from = "rxcase"; st.screen = "rxread"; }
+    catch (e) { r.err = "Could not load the opinion: " + (e.message || e); }
+    st.busy = ""; render(true);
+  }
+  async function rxOpenPatent(i) {
+    var r = st.rx, x = r.results[i], k = rkey("uspto"); if (!k) return toast("Add a USPTO key in Settings");
+    st.busy = "Getting the claims"; render();
+    try {
+      var c = await X.patentClaims(x.app, k.key), a = await E.analyze(c.bytes, { types: [] }), text = (a.pages || []).map(function (p) { return p.text; }).join("\n\n");
+      if (text.replace(/\s/g, "").length < 120) {
+        st.busy = "Reading the scanned claims"; render();
+        var w = await getOcr(), n = Math.min((a.pages || []).length, 8), pg = []; for (var q = 1; q <= n; q++) pg.push(q);
+        var o2 = await E.ocr(c.bytes, pg, async function (canvas) { var rr = await w.recognize(canvas); var ws = (rr && rr.data && rr.data.words) || []; return ws.filter(function (z) { return z.confidence > 35; }).map(function (z) { return { text: z.text, x0: z.bbox.x0, y0: z.bbox.y0, x1: z.bbox.x1, y1: z.bbox.y1 }; }); });
+        var a2 = await E.analyze(o2, { types: [] }); text = (a2.pages || []).map(function (p) { return p.text; }).join("\n\n");
+      }
+      r.doc = { kind: "patent", title: x.title, meta: [x.number, x.who, c.date ? "claims dated " + String(c.date).slice(0, 10) : ""].filter(Boolean).join(" · "), text: text.replace(/(\s)(\d{1,3}\s*\.\s+(?:A|An|The)\b)/g, "\n\n$2"), score: X.overlap(r.pat.focus, text, r.pat.keys), note: "Compares the wording of your claims with these claims." };
+      r.from = "rxpat"; st.screen = "rxread";
+    } catch (e) { r.err = "Could not get the claims: " + (e.message || e) + ". The USPTO may not have a claims document for this record."; }
+    st.busy = ""; render(true);
+  }
+  async function rxRead(kind) {
+    var sel = document.getElementById("rxf"), ta = document.getElementById("rxt"), cs = document.getElementById("rxc");
+    var r = st.rx = st.rx || {}; r.file = sel ? sel.value : ""; r.text = ta ? ta.value : ""; r.err = ""; r.results = null; if (cs) r.court = cs.value;
+    var text = r.file ? await fileText(r.file) : r.text;
+    if (!text || text.trim().length < 40) return toast(r.file ? "No readable text in that file. Run text recognition first." : "Add a file or paste more text");
+    if (kind === "pat") { var P = X.readPatent(text); r.pat = { title: P.title, claims: P.claims.length, indep: P.independent.length, keys: P.keywords.slice(0, 8), focus: P.focus }; }
+    else if (kind === "case") { var c = X.readCase(text); r.cs = { issues: c.issues, keys: c.keywords, q: X.caseQuery(c.issues, c.keywords), focus: text.slice(0, 8000) }; }
+    else { var f = cur(), iss = []; if (r.file && f && f.result) iss = f.result.issues.filter(function (x) { return x.file === r.file; }); r.rev = X.review(text, r.side || "theirs", iss, { court: S.court, state: S.state }); }
+    buzz(); render(true);
+  }
+  async function rxPatSearch() {
+    var r = st.rx, P = r.pat, add = document.getElementById("rxadd"); if (add && add.value.trim()) { P.keys.push(add.value.trim().toLowerCase()); add.value = ""; }
+    var k = rkey("uspto"); if (!k) { r.err = "No USPTO key yet. Add one in Settings → Online research."; return render(); }
+    if (!P.keys.length) return toast("Add at least one search word");
+    st.busy = "Searching USPTO"; render();
+    try { var list = await X.patents(P.keys, k.key); list.forEach(function (x) { x.score = X.overlap(P.focus, x.title + " " + (x.abstract || ""), P.keys); }); list.sort(function (a, b) { return b.score - a.score; }); r.results = list.slice(0, 25); r.err = list.length ? "" : "No results. Try fewer or broader words."; }
+    catch (e) { r.err = "Search failed: " + (e.message || e); }
+    st.busy = ""; render(true);
+  }
+  async function rxCaseSearch() {
+    var r = st.rx, C = r.cs, q = document.getElementById("rxq"); if (q) C.q = q.value.trim();
+    var k = rkey("courtlistener"); if (!k) { r.err = "No CourtListener key yet. Add one in Settings → Online research."; return render(); }
+    st.busy = "Searching court opinions"; render();
+    try {
+      var list = await X.cases(C.q, r.court || "", k.key);
+      if (!list.length && C.keys.length) list = await X.cases(C.keys.slice(0, 6).join(" OR "), r.court || "", k.key);
+      var qw = Object.keys(X.terms(C.keys.concat(C.issues).join(" "))); list.forEach(function (x) { var rt = X.terms(x.name + " " + x.snippet), wh = qw.length ? qw.filter(function (w) { return rt[w]; }).length / qw.length : 0; x.score = Math.max(X.overlap(C.focus, x.name + " " + x.snippet, C.keys.concat(C.issues)), Math.round(100 * Math.min(1, wh * 1.4))); }); list.sort(function (a, b) { return b.score - a.score || b.cited - a.cited; });
+      r.results = list.slice(0, 20); r.err = list.length ? "" : "No cases found. Try different words or All courts.";
+    } catch (e) { r.err = "Search failed: " + (e.message || e); }
+    st.busy = ""; render(true);
+  }
+
   /* ---------- celebration ---------- */
   function celebrate() {
     var host = document.querySelector(".bigcheck"); if (!host) return;
@@ -440,7 +563,7 @@
       return header("FileReady", greet(), '<button class="ib glass" data-a="tab" data-v="settings" aria-label="Settings">' + ic("user", 22) + "</button>") +
         '<main class="enter"><div class="empty"><div class="art"><div style="width:150px;height:150px;border-radius:40px;overflow:hidden;filter:drop-shadow(0 0 34px rgba(78,240,154,.5))">' + logo(150) + "</div></div>" +
         "<h2>Add your first filing</h2><p>Drop in the PDFs you plan to file or send. FileReady checks them against " + h(p.packShort) + " rules and fixes what it can, right on this phone.</p>" +
-        '<button class="btn" data-a="pick">' + ic("plus", 20, "#04140b", 2.6) + 'Add PDFs</button><div class="row2 mt"><button class="btn2 glass" data-a="demo" data-v="court">' + ic("scale", 18) + 'Court demo</button><button class="btn2 glass" data-a="demo" data-v="deal">' + ic("brief", 18) + "Deal demo</button></div>" +
+        '<button class="btn" data-a="pick">' + ic("plus", 20, "#04140b", 2.6) + 'Add PDFs</button><div class="row2 mt"><button class="btn2 glass" data-a="demo" data-v="court">' + ic("scale", 18) + 'Court demo</button><button class="btn2 glass" data-a="demo" data-v="deal">' + ic("brief", 18) + "Deal demo</button></div>" + researchCard() +
         '<p class="xs mut" style="margin-top:22px">' + ic("lock", 13) + " Files never leave this device.</p></div>" + filingList() + "</main>";
     }
     var r = f.result, pct = score(r), top = r ? r.issues.slice(0, 3) : [];
@@ -453,6 +576,7 @@
       '<main class="enter"><button class="search glass" data-a="search">' + ic("search", 20) + "Search all exhibits<kbd>" + (r ? r.pages + " pages" : "") + "</kbd></button>" +
       '<div class="hero glass mt2"><div class="top">' + ringSvg(pct) + '<div style="min-width:0"><button class="pill" data-a="rules">' + ic("shield", 14, "currentColor", 2.4) + h(p.packShort + " · " + shortArea(p.areaName)) + '</button><h2><button data-a="rename" style="text-align:left">' + h(f.name) + "</button></h2><div class=\"mut sm\">" + f.files.length + " file" + (f.files.length > 1 ? "s" : "") + (r ? " · checked " + when(r.at) : "") + "</div></div></div>" + bento + "</div>" +
       '<div class="sec"><b>Quick actions</b></div><div class="qa">' + qa("spark", "Fix all", "fixall", "gG") + qa("hash", "Build", "tab\" data-v=\"exhibits", "gP") + qa(p.contracts ? "cmp" : "scrub", p.contracts ? "Compare" : "Scrub", p.contracts ? "compare" : "scrubAll", "gY") + qa("rep", "Report", "report", "gO") + "</div>" +
+      researchCard() +
       (r && r.issues.length ? '<div class="sec"><b>Needs attention</b><button class="lnk" data-a="issues" data-v="all">See all ' + r.issues.length + "</button></div>" + top.map(function (x) { return issueRow(x, r.issues.indexOf(x)); }).join("") :
         r ? '<div class="sec"><b>All clear</b></div><div class="iss glass okk"><span class="ic">' + ic("chk", 22) + '</span><div class="tx"><b>No issues found</b><small>Build your filing when you are ready.</small></div><button class="fix" data-a="tab" data-v="exhibits">Build</button></div>' : "") +
       filingList() + '<p class="disc">FileReady flags common problems using ' + h(p.packName) + ". It is not legal advice. Confirm your court's current rules.</p></main>";
@@ -642,19 +766,22 @@
       '<div class="sec"><b>Court format</b></div><div class="glass list">' + li("smax", "File size limit", o.maxMB != null ? o.maxMB + " MB" : p.maxMB ? p.maxMB + " MB (rule pack)" : "Not set") + li("spage", "Page size", { letter: "Letter", legal: "Legal", a4: "A4", letterA4: "Letter or A4" }[p.pageSize]) + li("sreq", "Require text-searchable pages", "", tgl("", p.requireText)) + li("sfonts", "Require embedded fonts", "", tgl("", p.fonts)) + "</div>" +
       '<div class="sec"><b>Redaction list</b></div><div class="glass" style="border-radius:24px;padding:14px"><textarea class="inp" id="custom" rows="3" placeholder="One per line: client names, project code names, prices">' + h((S.custom || []).join("\n")) + '</textarea><button class="btn2 glass mt" data-a="scustom">Save list</button></div>' +
       '<div class="sec"><b>Firm settings</b></div><div class="glass list">' + li("sexport", "Share firm settings file", "Practice, court, size limits, redaction list, exhibit and Bates style") + li("simport", "Load a firm settings file", "Use the same setup as your team") + "</div>" +
-      '<div class="sec"><b>Security and look</b></div><div class="glass list">' + li("spin", S.pin ? "Change PIN" : "Set a PIN lock", S.pin ? "Locks when opened and after 2 minutes away" : "Recommended for client files") + (S.pin ? li("sbio", "Fingerprint unlock", "Uses your phone's biometrics", tgl("", S.bio)) + li("spinoff", "Turn off lock", "") : "") +
+      '<div class="sec"><b>Online research (optional)</b></div><div class="glass list">' + ['courtlistener', 'uspto'].map(function (kk) { var r = rkey(kk), nm = kk === 'uspto' ? 'USPTO key' : 'CourtListener key'; return li('skey" data-v="' + kk, nm, r ? (r.own ? 'Your own key' : 'Built-in key') + ' · tap to use your own' : 'Not set · tap to add'); }).join('') + li('skeyhelp" data-v="courtlistener', 'Get a free CourtListener key', 'courtlistener.com') + li('skeyhelp" data-v="uspto', 'Get a USPTO key', 'Needs a USPTO.gov account with two-step login') + '</div>' +
+      '<div class="sec"><b>Labs</b></div><div class="glass list">' + li('slabs', 'Patent check (Labs)', 'Early tool for patent firms. Off by default.', '<span class="tg' + (S.labs ? '' : ' off') + '"></span>') + '</div>' +
+      '<div class="sec"><b>Security and look</b></div><div class="glass list">' + li("spin", S.pin ? "Change PIN" : "Set a PIN lock", S.pin ? "Locks when opened and after 2 minutes away" : "Recommended for client files") + (S.pin ? li("spinoff", "Turn off lock", "") : "") +
       li("sstyle", "Aurora style", "Animated glow look (dark mode)", tgl("", S.style !== "classic")) + li("stheme", "Light mode", "", tgl("", S.theme === "light")) + li("sbig", "Large text", "", tgl("", S.big)) + "</div>" +
       '<div class="sec"><b>Help</b></div><div class="glass list">' + li("guide", "Interactive guide", "Step-by-step walkthrough") + li("demo\" data-v=\"court", "Load court demo", "Fictional filing with common problems") + li("demo\" data-v=\"deal", "Load deal demo", "Fictional purchase agreement and signature pages") + li("site", "FileReady website", "") + li("reset", "Delete all data on this device", "Filings, files and settings") + "</div>" +
       '<p class="disc">Everything runs on this device. FileReady flags common filing and contract problems; it is not legal advice and does not guarantee a court will accept a filing. Built by Mark Joseph.</p></main>';
   }
+  function paintDots() { var d = root.querySelectorAll(".dots i"); if (!d.length) return render(); [].forEach.call(d, function (x, i) { x.className = st.pin.length > i ? "f" : ""; }); }
   function viewLock() {
     var dots = ""; for (var i = 0; i < 4; i++) dots += "<i" + (st.pin.length > i ? ' class="f"' : "") + "></i>";
-    var keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, "bio", 0, "del"].map(function (k) { return k === "bio" ? (S.bio ? '<button class="glass" data-a="bio" aria-label="Fingerprint">' + ic("finger", 26) + "</button>" : "<span></span>") : k === "del" ? '<button data-a="pdel1" aria-label="Delete">' + ic("back", 24) + "</button>" : '<button class="glass" data-a="pk" data-v="' + k + '">' + k + "</button>"; }).join("");
+    var keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, "bio", 0, "del"].map(function (k) { return k === "bio" ? "<span></span>" : k === "del" ? '<button data-a="pdel1" aria-label="Delete">' + ic("back", 24) + "</button>" : '<button class="glass" data-a="pk" data-v="' + k + '">' + k + "</button>"; }).join("");
     return '<div class="lock enter"><div class="logo">' + logo(96) + '</div><h2 style="margin:0">FileReady</h2><p class="mut sm">' + (st.setPin ? (st.setPin === 1 ? "Choose a 4-digit PIN" : "Enter it again") : "Enter your PIN") + '</p><div class="dots">' + dots + '</div><div class="pad">' + keys + "</div>" + (st.setPin ? '<button class="mbtn mt2" data-a="pincancel">Cancel</button>' : "") + "</div>";
   }
   var SLIDES = [
     ["Every filing,<br>court-ready.", "FileReady checks PDFs before you file or send them: hidden text under black boxes, Social Security numbers, blank and sideways pages, size limits and more.", "ring"],
-    ["Private by design.", "Your documents never leave this device. No accounts, no uploads, no cloud. Lock the app with a PIN or fingerprint.", "lock"],
+    ["Private by design.", "Your documents never leave this device. No accounts, no uploads, no cloud. Lock the app with a PIN.", "lock"],
     ["Rules for all 50 states.", "Federal courts, every state and D.C., the USPTO, and data-protection checks for 8 regions, each linked to its source. Plus contract, binder and signature-packet tools for deal work.", "globe"]
   ];
   function viewOnb() {
@@ -737,21 +864,29 @@
     hh.style.transform = "perspective(900px) rotateX(" + (-y * 6).toFixed(2) + "deg) rotateY(" + (x * 7).toFixed(2) + "deg)";
   }, { passive: true });
   document.addEventListener("pointerout", function (e) { var hh = e.target.closest && e.target.closest(".hero"); if (hh && !hh.contains(e.relatedTarget)) hh.style.transform = ""; }, { passive: true });
+  var lastKey = "";
   function render(animate) {
     var html;
+    /* Animate only when the screen changes, not on every tap (stops the shaking on the PIN pad, toggles and lists). */
+    var key = !S.onboarded ? "onb" + st.onb : (S.pin && !st.unlocked) || st.setPin ? "lock" + (st.setPin || 0) : st.busy ? "busy" : (st.screen || "") + "|" + st.tab + "|" + st.fid;
+    var still = key === lastKey && !animate; lastKey = key;
+    root.classList.toggle("still", still);
     if (!S.onboarded) html = viewOnb();
     else if ((S.pin && !st.unlocked) || st.setPin) html = viewLock();
     else if (st.busy) html = busyView() + navBar();
     else {
       var s = st.screen;
-      html = (s === "issues" ? viewIssues() : s === "viewer" ? viewViewer() : s === "pages" ? viewPages() : s === "search" ? viewSearch() : s === "rules" ? viewRules() : s === "built" ? viewBuilt() : s === "ready" ? viewReady() : s === "packets" ? viewPackets() : s === "checklist" ? viewChecklist() : s === "compare" ? viewCompare() :
+      html = (s === "issues" ? viewIssues() : s === "viewer" ? viewViewer() : s === "pages" ? viewPages() : s === "search" ? viewSearch() : s === "rules" ? viewRules() : s === "built" ? viewBuilt() : s === "ready" ? viewReady() : s === "packets" ? viewPackets() : s === "checklist" ? viewChecklist() : s === "research" ? viewResearch() : s === "rxpat" ? viewPatent() : s === "rxcase" ? viewCases() : s === "rxrev" ? viewReview() : s === "rxread" ? viewReader() : s === "compare" ? viewCompare() :
         st.tab === "files" ? viewFiles() : st.tab === "exhibits" ? viewBuild() : st.tab === "settings" ? viewSettings() : viewHome()) + navBar();
     }
+    if (IOS && !STANDALONE && !window.Capacitor && S.onboarded && !(S.pin && !st.unlocked) && !st.setPin && !st.screen && st.tab === "check" && !st.busy && !(function () { try { return localStorage.getItem("fr.iosTip"); } catch (e) { return 1; } })())
+      html += '<div class="iostip glass"><span class="ic gG">' + ic("share", 18, "#04140b") + '</span><div><b>Install on your iPhone</b><small>Tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>. FileReady then opens like an app and works offline.</small></div><button data-a="iostip" aria-label="Close">' + ic("x", 18) + "</button></div>";
     root.innerHTML = html;
     requestAnimationFrame(function () {
-      [].forEach.call(root.querySelectorAll(".arc"), function (a) { a.style.strokeDashoffset = a.getAttribute("data-to"); });
+      [].forEach.call(root.querySelectorAll(".arc"), function (a) { if (still) a.style.transition = "none"; a.style.strokeDashoffset = a.getAttribute("data-to"); });
       [].forEach.call(root.querySelectorAll("[data-count]"), function (el) {
         var to = +el.getAttribute("data-count"), t0 = performance.now(), d = 900;
+        if (still) { el.textContent = to; return; }
         (function step(t) { var k = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); })(t0);
       });
     });
@@ -766,8 +901,9 @@
     var el = e.target.closest("[data-a]"); if (!el) return;
     var a = el.getAttribute("data-a"), v = el.getAttribute("data-v"), f = cur();
     if (["desc", "bprefix", "bstart", "q"].indexOf(a) >= 0) return;
+    if (a === "iostip") { try { localStorage.setItem("fr.iosTip", "1"); } catch (e) { } render(); return; }
     if (a === "tab") { st.tab = v; st.screen = null; render(); return; }
-    if (a === "back") { st.screen = st.screen === "viewer" && st.prev ? st.prev : null; st.prev = null; render(); return; }
+    if (a === "back") { st.screen = st.screen === "viewer" && st.prev ? st.prev : st.screen === "rxread" ? (st.rx && st.rx.from) || "research" : /^rx/.test(st.screen || "") ? "research" : null; st.prev = null; render(); return; }
     if (a === "add") return addSheet();
     if (a === "pick") return picker.click();
     if (a === "demo") return loadDemo(v);
@@ -791,6 +927,26 @@
     if (a === "redline") return saveRedline();
     if (a === "sexport") return exportSettings();
     if (a === "simport") return setPicker.click();
+    if (a === "slabs") { S.labs = !S.labs; saveS(); buzz(); render(); toast(S.labs ? "Patent check turned on under Research" : "Patent check hidden"); return; }
+    if (a === "research") { st.screen = "research"; render(); return; }
+    if (a === "rxpat" || a === "rxcase" || a === "rxrev") { if (st.screen === "rxrev" && a === "rxrev") return rxRead("rev"); st.rx = { side: "theirs" }; st.screen = a; render(); return; }
+    if (a === "rxpread") return rxRead("pat");
+    if (a === "rxcread") return rxRead("case");
+    if (a === "rxside") { st.rx = st.rx || {}; var sf = document.getElementById("rxf"), stx = document.getElementById("rxt"); if (sf) st.rx.file = sf.value; if (stx) st.rx.text = stx.value; st.rx.side = v; render(); return; }
+    if (a === "rxkw") { st.rx.pat.keys.splice(+v, 1); render(); return; }
+    if (a === "rxpsearch") return rxPatSearch();
+    if (a === "rxcsearch") return rxCaseSearch();
+    if (a === "rxgp") { var ad = document.getElementById("rxadd"); if (ad && ad.value.trim()) st.rx.pat.keys.push(ad.value.trim()); return openUrl(X.googlePatentsUrl(st.rx.pat.keys)); }
+    if (a === "rxcl") { var qq = document.getElementById("rxq"); if (qq) st.rx.cs.q = qq.value; return openUrl(X.courtListenerUrl(st.rx.cs.q, st.rx.court || "")); }
+    if (a === "rxopen") return openUrl(v);
+    if (a === "rxpread1") return rxOpenPatent(+v);
+    if (a === "rxcread1") return rxOpenCase(+v);
+    if (a === "rxcopy") { var cc = st.rx.doc.cite || ""; try { await navigator.clipboard.writeText(cc); toast("Citation copied"); } catch (e) { inputSheet("Citation", cc, "", function () { }); } return; }
+    if (a === "rxfindin") return inputSheet("Find in text", st.rx.doc.find || "", "Word or phrase", function (nv) { st.rx.doc.find = nv.trim(); render(); var m = document.querySelector(".reader mark"); if (m) m.scrollIntoView({ block: "center" }); else if (nv.trim()) toast("Not found"); });
+    if (a === "rxreset") { st.rx = { side: (st.rx || {}).side || "theirs" }; render(true); return; }
+    if (a === "rxfind") { var fd = st.rx.rev.findings[+v]; st.rx = { cs: { issues: [], keys: fd.q.split(" "), q: fd.q, focus: fd.title + " " + fd.why + " " + fd.q } }; st.screen = "rxcase"; render(true); if (rkey("courtlistener")) rxCaseSearch(); return; }
+    if (a === "skey") { var kk = v, names = { courtlistener: "CourtListener API token", uspto: "USPTO Open Data Portal API key" }; return inputSheet(names[kk], (S.keys || {})[kk] || "", "Leave empty to use the built-in key", function (nv) { S.keys = S.keys || {}; S.keys[kk] = nv.trim(); saveS(); render(); toast(nv.trim() ? "Your key is saved on this device" : "Using the built-in key"); }); }
+    if (a === "skeyhelp") return openUrl(v === "uspto" ? "https://data.uspto.gov/apis/getting-started" : "https://www.courtlistener.com/help/api/rest/");
     if (a === "packets") return packets();
     if (a === "sigview") { st.screen = "packets"; render(); return; }
     if (a === "sigadd") { st.sigFor = +v; sigPicker.click(); return; }
@@ -834,8 +990,7 @@
     if (a === "sfonts") { S.over.fonts = !prof().fonts; saveS(); recheck(); return; }
     if (a === "scustom") { S.custom = (document.getElementById("custom").value || "").split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 60); saveS(); toast("Redaction list saved"); recheck(); return; }
     if (a === "spin") { st.setPin = 1; st.pin = ""; render(); return; }
-    if (a === "spinoff") { S.pin = ""; S.bio = false; saveS(); toast("Lock turned off"); render(); return; }
-    if (a === "sbio") { if (!S.bio) { var ok = await bioCheck(true); if (!ok) return toast("Fingerprint is not available on this device"); } S.bio = !S.bio; saveS(); render(); return; }
+    if (a === "spinoff") { S.pin = ""; saveS(); toast("Lock turned off"); render(); return; }
     if (a === "sstyle") { S.style = S.style === "classic" ? "aurora" : "classic"; saveS(); applyLook(); render(); return; }
     if (a === "stheme") { S.theme = S.theme === "light" ? "dark" : "light"; saveS(); applyLook(); render(); return; }
     if (a === "sbig") { S.big = !S.big; saveS(); applyLook(); render(); return; }
@@ -848,10 +1003,9 @@
     if (a === "oarea") { S.area = v; [].forEach.call(root.querySelectorAll('[data-a="oarea"]'), function (b) { b.classList.toggle("on", b.getAttribute("data-v") === v); }); if (v === "business" && document.getElementById("ocourt").value === "state") { document.getElementById("ocourt").value = "none"; document.getElementById("oregion").value = "all"; } if (v === "ip") document.getElementById("ocourt").value = "uspto"; if (v === "bankruptcy") document.getElementById("ocourt").value = "federal"; return; }
     if (a === "ofinish") { S.name = document.getElementById("oname").value.trim(); S.court = document.getElementById("ocourt").value; S.state = document.getElementById("ostate").value; S.region = document.getElementById("oregion").value; S.onboarded = true; saveS(); st.unlocked = true; buzz("ok"); render(true); return; }
     // lock
-    if (a === "pk") { if (st.pin.length < 4) { st.pin += v; buzz(); render(); if (st.pin.length === 4) setTimeout(pinDone, 120); } return; }
-    if (a === "pdel1") { st.pin = st.pin.slice(0, -1); render(); return; }
+    if (a === "pk") { if (st.pin.length < 4) { st.pin += v; buzz(); paintDots(); if (st.pin.length === 4) setTimeout(pinDone, 60); } return; }
+    if (a === "pdel1") { st.pin = st.pin.slice(0, -1); paintDots(); return; }
     if (a === "pincancel") { st.setPin = 0; st.pin = ""; render(); return; }
-    if (a === "bio") { if (await bioCheck()) { st.unlocked = true; buzz("ok"); render(true); } return; }
   });
   root.addEventListener("input", function (e) {
     var el = e.target, a = el.getAttribute("data-a"), f = cur();
@@ -879,15 +1033,18 @@
     await newVersion(f, file, out, label); await saveF(f); buzz("ok"); toast(label); st.busy = ""; render(); runCheck(true).then(function () { st.screen = "pages"; render(); });
   }
   /* PIN: PBKDF2-SHA256 with a random salt, attempt limits and auto-lock. The PIN guards the app screen; files rely on the device's own encryption. */
-  var PIN_ITER = 210000;
+  var PIN_ITER = 60000;
   function hex(u) { return [].map.call(u, function (x) { return ("0" + x.toString(16)).slice(-2); }).join(""); }
   function unhex(x) { var u = new Uint8Array(x.length / 2); for (var i = 0; i < u.length; i++) u[i] = parseInt(x.substr(i * 2, 2), 16); return u; }
-  async function pbk(p, salt) { var k = await crypto.subtle.importKey("raw", new TextEncoder().encode(p), "PBKDF2", false, ["deriveBits"]); return hex(new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: salt, iterations: PIN_ITER }, k, 256))); }
-  async function pinHash(p) { var salt = crypto.getRandomValues(new Uint8Array(16)); return "p2$" + hex(salt) + "$" + (await pbk(p, salt)); }
+  async function pbk(p, salt, it) { var k = await crypto.subtle.importKey("raw", new TextEncoder().encode(p), "PBKDF2", false, ["deriveBits"]); return hex(new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: salt, iterations: it || PIN_ITER }, k, 256))); }
+  async function pinHash(p) { var salt = crypto.getRandomValues(new Uint8Array(16)); return "p3$" + PIN_ITER + "$" + hex(salt) + "$" + (await pbk(p, salt, PIN_ITER)); }
   async function pinOk(p) {
-    if (/^p2\$/.test(S.pin)) { var a = S.pin.split("$"); return eqc(await pbk(p, unhex(a[1])), a[2]); }
-    var d = hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("fileready:" + p)))); /* older format: upgrade on success */
-    if (eqc(d, S.pin)) { S.pin = await pinHash(p); saveS(); return true; } return false;
+    var a = S.pin.split("$"), ok;
+    if (a[0] === "p3") ok = eqc(await pbk(p, unhex(a[2]), +a[1]), a[3]);
+    else if (a[0] === "p2") ok = eqc(await pbk(p, unhex(a[1]), 210000), a[2]);
+    else ok = eqc(hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("fileready:" + p)))), S.pin);
+    if (ok && (a[0] !== "p3" || +a[1] !== PIN_ITER)) { S.pin = await pinHash(p); saveS(); } /* upgrade older formats */
+    return ok;
   }
   function eqc(a, b) { if (!a || !b || a.length !== b.length) return false; var r = 0; for (var i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; }
   function lockState() { try { return JSON.parse(localStorage.getItem("fr.lock") || "{}"); } catch (e) { return {}; } }
@@ -906,18 +1063,14 @@
   var hiddenAt = 0;
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) { hiddenAt = Date.now(); return; }
-    if (S.pin && st.unlocked && hiddenAt && Date.now() - hiddenAt > 120000) { st.unlocked = false; closeSheet(); render(); if (S.bio) setTimeout(async function () { if (!st.unlocked && await bioCheck()) { st.unlocked = true; render(true); } }, 400); }
+    if (S.pin && st.unlocked && hiddenAt && Date.now() - hiddenAt > 120000) { st.unlocked = false; closeSheet(); render(); }
   });
-  async function bioCheck(probe) {
-    var B = plug("BiometricAuthNative");
-    if (!B) return false;
-    try {
-      if (probe) { var c = await B.checkBiometry(); return !!(c && (c.isAvailable || c.deviceIsSecure)); }
-      await B.internalAuthenticate({ reason: "Unlock FileReady", cancelTitle: "Use PIN", allowDeviceCredential: true, androidTitle: "Unlock FileReady", androidSubtitle: "Use your fingerprint", androidConfirmationRequired: false });
-      return true;
-    } catch (e) { return false; }
-  }
   function openUrl(u) {
+    var IAB = plug("InAppBrowser");
+    if (/^https?:/.test(u) && IAB && IAB.openInWebView) {
+      IAB.openInWebView({ url: u, options: { showURL: true, showToolbar: true, clearCache: false, clearSessionCache: false, mediaPlaybackRequiresUserAction: true, closeButtonText: "Back to FileReady", toolbarPosition: 0, showNavigationButtons: true, leftToRight: false, android: { allowZoom: true, hardwareBack: true, pauseMedia: true }, iOS: { allowOverScroll: true, enableViewportScale: true, allowInLineMediaPlayback: false, surpressIncrementalRendering: false, viewStyle: 1, animationEffect: 2, allowsBackForwardNavigationGestures: true } } }).catch(function () { var B2 = plug("Browser"); if (B2) B2.open({ url: u, presentationStyle: "popover" }); });
+      return;
+    }
     var B = plug("Browser");
     if (/^https?:/.test(u) && B) { B.open({ url: u }); return; }
     if (/^https?:/.test(u)) { window.open(u, "_blank", "noopener"); return; }
@@ -931,7 +1084,6 @@
     await loadFilings();
     if (!window.pdfjsLib) await new Promise(function (r) { window.addEventListener("pdfjs-ready", r, { once: true }); setTimeout(r, 8000); });
     if (!window.pdfjsLib) { root.innerHTML = '<div class="empty"><h2>Could not load the PDF reader</h2><p>Reload the app. If this keeps happening, update your phone’s WebView.</p></div>'; return; }
-    if (S.pin && S.bio) { setTimeout(async function () { if (!st.unlocked && await bioCheck()) { st.unlocked = true; render(true); } }, 400); }
     render(true);
     var f = cur(); if (f && f.files.length && !f.result) runCheck(true);
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) window.Capacitor.Plugins.App.addListener("backButton", function () { if (document.querySelector(".sheetbg")) return closeSheet(); if (st.screen) { st.screen = null; render(); } else if (st.tab !== "check") { st.tab = "check"; render(); } else window.Capacitor.Plugins.App.exitApp(); });

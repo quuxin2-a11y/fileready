@@ -19,11 +19,16 @@ Tick items as you go. Items marked ✅ are already done in the code.
 - [ ] Repo → **Settings** → **Actions** → **General** → Workflow permissions: **Read repository contents** (the workflow asks for write access itself).
 - [ ] Repo → **Settings** → **Branches** → add a rule for `main`: block force pushes and deletion.
 
+## B2. Research keys
+- [ ] Add `COURTLISTENER_TOKEN` and `USPTO_API_KEY` as repository secrets.
+- [ ] Set **Settings → Pages → Source** to **GitHub Actions** so the website gets the keys.
+- [ ] When selling: delete the two secrets (or rotate the keys) and tell buyers to add their own in Settings.
+
 ## C. Before giving the app to any firm
 - [ ] Add the `SIGNING_PASSWORD` secret and save the same password in your password manager (the workflow makes and stores the key).
 - [ ] After the first signed build, confirm `signing/release.jks.enc` appears in the repo and the Releases page shows a fingerprint.
 - [ ] Copy the fingerprint into your records; give it to firms that ask how to verify the app.
-- [ ] Test on the phone: PIN, wrong-PIN wait, auto-lock after 2 minutes, fingerprint unlock, text recognition.
+- [ ] Test on the phone: PIN, wrong-PIN wait, auto-lock after 2 minutes, text recognition.
 - [ ] Confirm backups are off: Android **Settings** → **Google** → **Backup** shows no FileReady data.
 - [ ] Run the court demo and deal demo; check every redaction by searching the built PDF for the hidden text.
 - [ ] Re-check the 21 state rule packs still marked "compiled" before selling in those states.

@@ -231,3 +231,34 @@ html.aurora .art::after{width:330px;height:330px;margin:-165px 0 0 -165px;border
 html.aurora .bigcheck{background:linear-gradient(145deg,#4ef09a,#22d3ee);box-shadow:0 0 0 14px rgba(78,240,154,.1),0 0 90px rgba(34,211,238,.6)}
 html.aurora .bigcheck::before{content:"";position:absolute;inset:-26px;border-radius:50%;background:conic-gradient(from var(--ang),transparent,#4ef09a,#22d3ee,#7c8cff,transparent 70%);-webkit-mask:radial-gradient(circle,transparent 66%,#000 67%,#000 69%,transparent 70%);mask:radial-gradient(circle,transparent 66%,#000 67%,#000 69%,transparent 70%);animation:spinang 2.4s linear infinite;pointer-events:none}
 @media (prefers-reduced-motion:reduce){html.aurora .art::before,html.aurora .art::after,html.aurora .bigcheck::before{animation:none}}
+#app.still .enter>*,#app.still .enter,#app.still .bigcheck{animation:none!important}
+/* Performance: blur only on floating layers (nav, sheets, toasts), not on every card */
+.glass,html.aurora .glass{-webkit-backdrop-filter:none;backdrop-filter:none}
+.nav,.sheet{-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+html:not(.light) .glass{background-color:rgba(18,21,30,.55)}
+html.aurora .glass{background:linear-gradient(160deg,rgba(255,255,255,.075),rgba(255,255,255,.02)) padding-box,linear-gradient(140deg,rgba(255,255,255,.28),rgba(255,255,255,.04) 40%,rgba(124,140,255,.22)) border-box;background-color:rgba(14,16,26,.6)}
+.glows i{will-change:transform;transform:translateZ(0)}
+.hero,.tile{contain:paint}
+.iostip{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(98px + env(safe-area-inset-bottom));width:calc(100% - 32px);max-width:528px;z-index:19;border-radius:20px;padding:12px 12px 12px 14px;display:flex;gap:12px;align-items:center;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);animation:up .35s}
+.iostip .ic{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.iostip b{display:block;font-size:.88rem}.iostip small{display:block;color:var(--mut);font-size:.76rem;line-height:1.4;margin-top:2px}.iostip small b{display:inline;color:var(--tx)}
+.iostip>div{flex:1;min-width:0}.iostip button{width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--mut)}
+html .iostip.glass{background:#10131e!important;border:1px solid rgba(255,255,255,.14)!important;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+html.light .iostip.glass{background:rgba(255,255,255,.98)!important;border-color:rgba(14,19,34,.1)!important}
+/* research */
+.rxc{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border-radius:22px;padding:14px;margin-bottom:12px}
+.rxc .ic{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex:none}
+.rxc .tx{flex:1;min-width:0}.rxc b{display:block;font-size:1rem}.rxc small{display:block;color:var(--mut);font-size:.8rem;margin-top:3px;line-height:1.4}
+.rxr{border-radius:20px;padding:14px;margin-bottom:10px;position:relative}
+.rxr>b{display:block;font-size:.95rem;line-height:1.3}.rxr small{display:block;font-size:.78rem;margin-top:3px}
+.rxr.must{border-left:3px solid var(--o2)}.rxr.should{border-left:3px solid var(--y2)}
+.ovl{display:flex;align-items:center;gap:10px;margin:10px 0 4px}.ovb{flex:1;height:8px;border-radius:9px;background:var(--card2);overflow:hidden}.ovb i{display:block;height:100%;border-radius:9px}.ovl b{font-size:.9rem;min-width:42px;text-align:right}
+.n2{font-size:.72rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);margin:10px 0 4px}
+ul.opt{margin:0;padding-left:18px;font-size:.85rem;line-height:1.45}ul.opt li{margin:3px 0}
+textarea.inp{resize:vertical;min-height:96px;line-height:1.45}
+.chips .chip.on{font-size:.78rem;padding:7px 11px}
+.reader{border-radius:22px;padding:16px 18px;font-size:.95rem;line-height:1.65;overflow-wrap:anywhere}
+.reader p{margin:0 0 14px}.reader mark{background:rgba(255,193,69,.45);color:inherit;border-radius:4px;padding:0 2px}
+html.light .reader{font-family:Georgia,"Times New Roman",serif}
+.beta{display:inline-block;margin-left:8px;vertical-align:2px;font-size:.6rem;font-weight:800;letter-spacing:.6px;padding:3px 7px;border-radius:7px;background:rgba(124,140,255,.18);color:#c7cdff}
+html.light .beta{color:#4a59e0;background:rgba(91,108,255,.12)}

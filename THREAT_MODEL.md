@@ -38,7 +38,7 @@ Last reviewed: November 2026 (version 1.2). Review again after any feature that 
 ## 4. STRIDE
 | Category | Threat | Mitigation | Status |
 |---|---|---|---|
-| Spoofing | Someone opens the app on an unlocked phone | PIN with slow hash, attempt limits, auto-lock, fingerprint | Done (fingerprint untested) |
+| Spoofing | Someone opens the app on an unlocked phone | PIN with slow hash, attempt limits, auto-lock | Done |
 | Spoofing | Fake FileReady APK sent to a firm | Release signing key; certificate fingerprint and checksum published on the Releases page | Done, untested |
 | Tampering | Crafted PDF changes what is shown or hides text | Checks run on extracted text and page images; text under boxes flagged | Done |
 | Tampering | Wrong signed page put into a document | Footer match or page order, user checks each match, new version with undo | Done |
@@ -53,6 +53,9 @@ Last reviewed: November 2026 (version 1.2). Review again after any feature that 
 | Information disclosure | Injected script sends data out (web) | Strict CSP blocks outside connections and scripts | Done |
 | Information disclosure | Firm settings file shared too widely | It holds no documents or PIN; warn that it holds client names | Partial |
 | Information disclosure | Business plan read from the public repo | AES-256-GCM with a strong random password | Done |
+| Information disclosure | Research keywords reveal an unfiled invention or case strategy to a database operator | Keywords shown and editable before sending; opt-in per search; document never sent | Done |
+| Spoofing | Built-in research keys copied and abused | Low-value keys, replaceable; users can use their own; remove built-in keys at sale | Accepted risk |
+| Tampering | Misleading search results relied on as legal authority | Results link to the source; scores labeled as wording overlap; disclaimers to verify every case and rule | Done |
 | Denial of service | Huge or zip-bomb files freeze the app | File size and unpacked size limits | Planned |
 | Elevation of privilege | Script inside a PDF runs | pdf.js eval off, PDF JavaScript never run, scrub removes it | Done |
 | Elevation of privilege | Malicious Word macro | Macros are never run; Word files read as XML | Done |

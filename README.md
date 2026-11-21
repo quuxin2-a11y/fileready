@@ -5,6 +5,8 @@
 
 <p align="center"><img src="guide-home.jpg" width="230"> <img src="guide-packets.jpg" width="230"> <img src="guide-checklist.jpg" width="230"></p>
 
+**iPhone:** open the web app in Safari → **Share** → **Add to Home Screen**.
+
 FileReady checks PDFs before they are filed or sent, fixes what it can, and builds the final package. Everything runs on the device: no account, no uploads.
 
 ## What it does
@@ -15,13 +17,14 @@ FileReady checks PDFs before they are filed or sent, fixes what it can, and buil
 - **Closing tools:** signed pages put back into the final documents, and a closing checklist linked to the binder tabs.
 - **Word, scans and versions:** Word (.docx) checks and cleanup, text recognition for scanned pages, compare two versions with a redline PDF.
 - **Firm settings:** export one settings file and share it so the whole firm uses the same rules.
+- **Research (Beta):** review the other side's filing (or yours) for common mistakes with options and rule citations, and find similar court cases. Patent check is a Labs tool, off by default (Settings → Labs).
 - **Rules:** all 50 states and D.C., federal courts, the USPTO, and data-protection flags for eight regions, each linked to its official source.
 
 ## Security
 Files stay on the device: no server, no account, no upload. See [SECURITY.md](SECURITY.md), [requirements](SECURITY_REQUIREMENTS.md), [threat model](THREAT_MODEL.md), [architecture](SECURITY_ARCHITECTURE.md) and [checklist](SECURITY_CHECKLIST.md). Report problems privately through the Security tab.
 
 ## Files
-`index.html` app · `boot.js` security policy and start-up · `app.js` screens · `engine.js` PDF checks and fixes · `rules.js` rule packs · `app.css` design · `site.html` website · `guide.html` guide · `.github/workflows/apk.yml` Android build.
+`index.html` app · `boot.js` security policy and start-up · `app.js` screens · `engine.js` PDF checks and fixes · `rules.js` rule packs · `research.js` research tools · `keys.js` research keys (filled at build) · `app.css` design · `site.html` website · `guide.html` guide · `.github/workflows/apk.yml` Android build.
 
 FileReady flags common problems. It is not legal advice.
 

@@ -1,6 +1,16 @@
 # Changelog
 
+## 1.3.0 (November 2026)
+- Focus: Review a filing and Similar cases are marked Beta; Patent check is hidden behind Settings → Labs (off by default). Business plan adds a Focus now section: feature freeze, phone testing, three pilot firms.
+- Research: Patent check before filing (finds published U.S. patents and applications with similar wording, with an overlap score, plus timing rules and options), Similar cases (finds court opinions on CourtListener from your description or document), and Review a filing (finds common mistakes in the other side's filing or your own, with options to consider and rule citations, and a link to search cases on each).
+- Everything opens inside the app: court opinions and patent claims are read in an in-app reader (with find-in-text, copy citation and a wording-overlap score against your claims or case), and any outside link opens in an in-app viewer instead of the browser.
+- Online searches are opt-in and send only the keywords shown on screen. Built-in research keys come from GitHub Secrets; users can add their own in Settings.
+- Website now deploys through GitHub Actions (pages.yml).
+
 ## 1.2.0 (November 2026)
+- iPhone: installs from Safari with Add to Home Screen (full-screen, offline, full-size icon), a one-time install tip, Save opens the share sheet (Save to Files), and storage is marked persistent.
+- PIN-only lock (fingerprint removed); faster unlock; no more shaking: screens animate only when you move to a new screen; smoother scrolling (blur only on the bottom bar and sheets).
+- New full-size adaptive app icon on Android: the artwork now fills the whole icon instead of sitting small inside a white circle.
 - Security: Content Security Policy on the app, guide and website; PIN now a salted PBKDF2 hash with attempt limits and auto-lock after 2 minutes away; Android backups of app data turned off; text recognition on the web loads only from cdn.jsdelivr.net.
 - Android release signing: the build creates and stores an encrypted release key, signs every APK, and publishes the certificate fingerprint and a checksum. Updates install over the old version.
 - Security documents: SECURITY.md, SECURITY_REQUIREMENTS.md, THREAT_MODEL.md, SECURITY_ARCHITECTURE.md, SECURITY_CHECKLIST.md.
