@@ -1,0 +1,41 @@
+name: Make license code
+on:
+  workflow_dispatch:
+    inputs:
+      firm:
+        description: "Firm name (shown in the app)"
+        required: true
+      seats:
+        description: "Number of people"
+        required: true
+        default: "5"
+      months:
+        description: "Months the license lasts"
+        required: true
+        default: "12"
+permissions:
+  contents: write
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Make the code
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          FIRM: ${{ inputs.firm }}
+          SEATS: ${{ inputs.seats }}
+          MONTHS: ${{ inputs.months }}
+        run: |
+          node license-tool.js
+          if [ -n "$(git status --porcelain signing license-pub.js)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add signing/license.key.enc license-pub.js
+            git commit -m "Add license public key"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
