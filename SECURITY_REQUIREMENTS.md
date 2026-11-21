@@ -27,6 +27,7 @@ Last reviewed: November 2026 (version 1.2).
 | AC-3 | After 5 wrong PINs, a wait starts at 30 seconds and doubles, up to 1 hour. | Done |
 | AC-4 | The app locks again after 2 minutes in the background. | Done |
 | AC-5 | PIN only: no fingerprint or face unlock, so no biometric plugin is included. | Done |
+| AC-7 | The PIN is optional; removing it requires the current PIN; a forgotten PIN can only be cleared by erasing the app's data on the device. | Done |
 | AC-6 | The PIN is refused if secure browser cryptography is unavailable (no weak fallback). | Done |
 
 ## 3. Untrusted input (PDF and Word files from other parties)

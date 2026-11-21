@@ -100,6 +100,8 @@ GitHub Actions (`.github/workflows/apk.yml`) checks out the repo, installs Node 
 
 If the password is lost, a new key must be made and every user must uninstall once. If it leaks, change it: make a new key and publish the new fingerprint.
 
+**License codes.** `license-tool.js`, run by the `license.yml` workflow, creates a P-256 signing key once and stores it only encrypted (scrypt + AES-256-GCM with the `SIGNING_PASSWORD` secret) in `signing/license.key.enc`, and writes the public key to `license-pub.js`. Each code is the firm, seats and dates, signed with ECDSA; the app checks the signature on the device with WebCrypto. Codes appear in the workflow summary, which is public for a public repository, so they identify the firm rather than act as secrets.
+
 **Website build.** A second workflow (`pages.yml`) publishes the website through GitHub Pages and writes `keys.js` from the `COURTLISTENER_TOKEN` and `USPTO_API_KEY` secrets. The APK build does the same.
 
 Planned: exact versions with a lockfile, actions pinned by commit, and checksums for downloaded files.

@@ -417,6 +417,46 @@
   function sentNote(where) { return '<div class="note glass sm">' + ic("lock", 14) + " Your document stays on this phone. Only the search words below are sent to " + where + ", and only when you tap Search.</div>"; }
   function keyNote(k, name) { var r = rkey(k); return r ? '<p class="xs mut" style="margin:6px 2px 0">Using ' + (r.own ? "your own " : "the built-in ") + name + " key.</p>" : '<p class="xs mut" style="margin:6px 2px 0">No ' + name + ' key yet. Add one in Settings → Online research.</p>'; }
   function researchCard() { return '<button class="rxc glass mt" data-a="research"><span class="ic gP">' + ic("book", 22, "#0b0d12") + '</span><span class="tx"><b>Research<span class="beta">BETA</span></b><small>Review a filing and find similar cases</small></span>' + ic("chev", 18) + "</button>"; }
+
+  /* Example prompts (fictional), so people can see how the research tools work. */
+  var RX_EX = {
+    rxcase: [
+      ["Non-compete", "Former employee in Austin joined a competitor. The employer sues for breach of a non-compete agreement and trade secret misappropriation. We think the non-compete is unreasonable in time and area."],
+      ["Slip and fall", "Tenant slipped on an icy outdoor stairway at an apartment complex in Dallas. The landlord knew about the broken gutter for weeks and did nothing. Premises liability claim."],
+      ["Contract notice", "Software customer says the vendor terminated the license without the 30-day written notice the contract requires. Breach of contract and lost profits."],
+      ["Car search", "Police searched a car without a warrant after a traffic stop for a broken taillight and found evidence. Motion to suppress under the Fourth Amendment."]
+    ],
+    rxrev: [
+      ["Their motion (no signature)", "IN THE DISTRICT COURT OF TRAVIS COUNTY, TEXAS\nCause No. D-1-GN-26-000000\nACME ROOFING LLC, Plaintiff, v. BLUE OAK HOMES INC., Defendant.\n\nPLAINTIFF'S MOTION TO COMPEL\n\nPlaintiff asks the Court to compel Defendant to produce the documents listed in Exhibit A within ten days. Defendant has not responded to Plaintiff's requests for production served on March 3, 2026.\n\nWHEREFORE, Plaintiff requests that the Court grant this motion."],
+      ["Their petition (no Rule 47)", "IN THE DISTRICT COURT OF HARRIS COUNTY, TEXAS\nCause No. 2026-00000\nJORDAN LEE, Plaintiff, v. RIVERSIDE STORAGE LLC, Defendant.\n\nPLAINTIFF'S ORIGINAL PETITION\n\nPlaintiff sues Defendant for breach of contract. Defendant agreed to store Plaintiff's furniture and lost it. Plaintiff seeks damages, costs and fees.\n\nWHEREFORE, Plaintiff prays for judgment against Defendant.\n\nRespectfully submitted,\n/s/ Sam Rivera, Attorney for Plaintiff"],
+      ["Our declaration (not sworn)", "IN THE UNITED STATES DISTRICT COURT FOR THE WESTERN DISTRICT OF TEXAS\nCivil Action No. 1:26-cv-00000\n\nDECLARATION OF ALEX MORGAN\n\nI, Alex Morgan, state as follows: I am the operations manager of the plaintiff company. On May 1, 2026, I received the shipment described in Exhibit C. The goods were damaged.\n\nSigned on May 20, 2026.\n/s/ Alex Morgan"]
+    ]
+  };
+  /* ---------- license codes (firms pay directly; the code unlocks the firm name and seats) ---------- */
+  function b64u(x) { x = String(x).replace(/-/g, "+").replace(/_/g, "/"); while (x.length % 4) x += "="; var b = atob(x), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  async function verifyLicense(code) {
+    var pub = window.FR_LICENSE_PUB; if (!pub) throw new Error("License checking is not set up in this build yet");
+    var m = /^FR1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(String(code || "").trim()); if (!m) throw new Error("That is not a FileReady license code");
+    var key = await crypto.subtle.importKey("spki", b64u(pub), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+    var body = b64u(m[1]), ok = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, b64u(m[2]), body);
+    if (!ok) throw new Error("This code is not valid");
+    var p = JSON.parse(new TextDecoder().decode(body));
+    return { firm: p.f, seats: p.s, issued: p.i, until: p.e, id: p.id, expired: new Date(p.e + "T23:59:59") < new Date() };
+  }
+  st.lic = null;
+  (async function () { if (S.license) { try { st.lic = await verifyLicense(S.license); } catch (e) { st.lic = { bad: true }; } if (S.onboarded && st.tab === "settings") render(); } })();
+  function licRow() {
+    function li(act, t, sub) { return '<button class="li" data-a="' + act + '"><span class="tx"><b>' + h(t) + "</b><small>" + h(sub) + "</small></span>" + ic("chev", 18) + "</button>"; }
+    var L = st.lic;
+    var t = L && !L.bad ? (L.expired ? "License expired" : "Licensed to " + L.firm) : "Free pilot";
+    var sub = L && !L.bad ? L.seats + " " + (L.seats === 1 ? "person" : "people") + " · " + (L.expired ? "ended " : "until ") + L.until : L && L.bad ? "The saved code could not be checked · tap to enter a new one" : "Have a license code? Tap to enter it";
+    return '<div class="sec"><b>License</b></div><div class="glass list">' + li("slic", t, sub) + (S.license ? li("slicoff", "Remove license code", "Goes back to the free pilot") : "") + "</div>";
+  }
+  function exBlock(kind) {
+    var L = RX_EX[kind]; if (!L) return "";
+    if (S.hideEx) return '<button class="lnk sm" data-a="rxexshow" style="display:block;margin:8px 0 0">Show example prompts</button>';
+    return '<div class="exs"><span class="xs mut">Try an example (fictional):</span><div class="chips" style="flex-wrap:wrap;margin-top:6px">' + L.map(function (x, i) { return '<button class="chip" data-a="rxex" data-v="' + i + '">' + h(x[0]) + "</button>"; }).join("") + '</div><button class="lnk sm" data-a="rxexhide" style="margin-top:4px">Hide examples</button></div>';
+  }
   function viewResearch() {
     function card(a, icn, col, t, s, tag) { return '<button class="rxc glass" data-a="' + a + '"><span class="ic ' + col + '">' + ic(icn, 24, "#0b0d12") + '</span><span class="tx"><b>' + t + (tag ? '<span class="beta">' + tag + "</span>" : "") + "</b><small>" + s + "</small></span>" + ic("chev", 18) + "</button>"; }
     return header("Research", "Patents, case law and filing review", "", true) + '<main class="enter">' +
@@ -444,7 +484,7 @@
   function viewCases() {
     var r = st.rx || {}, C = r.cs;
     var courts = X.COURTS.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === (r.court || "") ? " selected" : "") + ">" + c[1] + "</option>"; }).join("");
-    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or describe your case</label><textarea class="inp" id="rxt" rows="5" placeholder="What happened, what you are claiming or defending, and where">' + h(r.text || "") + '</textarea><label class="f">Courts</label><select class="inp" id="rxc">' + courts + '</select><button class="btn mt" data-a="rxcread">' + ic("search", 19, "#04140b", 2.4) + "Find the issues</button></div>";
+    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or describe your case</label>' + exBlock("rxcase") + '<textarea class="inp mt" id="rxt" rows="5" placeholder="What happened, what you are claiming or defending, and where">' + h(r.text || "") + '</textarea><button class="lnk sm" data-a="rxclear">Clear text</button><label class="f">Courts</label><select class="inp" id="rxc">' + courts + '</select><button class="btn mt" data-a="rxcread">' + ic("search", 19, "#04140b", 2.4) + "Find the issues</button></div>";
     if (!C) return header("Similar cases", "Find precedent", "", true) + '<main class="enter">' + top + '<p class="disc">Searches court opinions on CourtListener (Free Law Project). Information only, not legal advice.</p></main>';
     var res = (r.results || []).map(function (x, i) { return '<div class="rxr glass"><b>' + h(x.name) + '</b><small class="mut">' + h([x.cite, x.court, x.date, x.cited ? "cited " + x.cited + " times" : ""].filter(Boolean).join(" · ")) + "</small>" + pct(x.score) + (x.snippet ? '<p class="sm mut" style="margin:6px 0">' + h(x.snippet) + "…</p>" : "") + (x.opinionId ? '<button class="lnk sm" data-a="rxcread1" data-v="' + i + '">Read the opinion ' + ic("chev", 13) + "</button>" : "") + "</div>"; }).join("");
     return header("Similar cases", C.issues.length ? C.issues.join(", ") : "Your case", "", true) + '<main class="enter">' +
@@ -455,7 +495,7 @@
   }
   function viewReview() {
     var r = st.rx || {}, R = r.rev, f = cur();
-    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or paste the filing text</label><textarea class="inp" id="rxt" rows="4" placeholder="Paste the motion, petition or answer">' + h(r.text || "") + '</textarea><label class="f">Whose filing is it?</label><div class="seg glass"><button class="' + (r.side !== "ours" ? "on" : "") + '" data-a="rxside" data-v="theirs">The other side</button><button class="' + (r.side === "ours" ? "on" : "") + '" data-a="rxside" data-v="ours">Ours, before filing</button></div><button class="btn mt" data-a="rxrev">' + ic("eye", 19, "#04140b", 2.4) + "Review it</button></div>";
+    var top = '<div class="glass list mt" style="padding:12px 16px">' + filePicker("rxf", r.file) + '<label class="f">Or paste the filing text</label>' + exBlock("rxrev") + '<textarea class="inp mt" id="rxt" rows="4" placeholder="Paste the motion, petition or answer">' + h(r.text || "") + '</textarea><button class="lnk sm" data-a="rxclear">Clear text</button><label class="f">Whose filing is it?</label><div class="seg glass"><button class="' + (r.side !== "ours" ? "on" : "") + '" data-a="rxside" data-v="theirs">The other side</button><button class="' + (r.side === "ours" ? "on" : "") + '" data-a="rxside" data-v="ours">Ours, before filing</button></div><button class="btn mt" data-a="rxrev">' + ic("eye", 19, "#04140b", 2.4) + "Review it</button></div>";
     if (!R) return header("Review a filing", "Find mistakes", "", true) + '<main class="enter">' + top + '<p class="disc">Runs on this phone. Uses ' + h(prof().packName) + " rules. Information only, not legal advice.</p></main>";
     var rows = R.findings.map(function (x, i) { return '<div class="rxr glass ' + x.sev + '"><b>' + h(x.title) + '<span class="tag">' + (x.sev === "must" ? "IMPORTANT" : "REVIEW") + '</span></b><small class="mut">' + h(x.why) + '</small><div class="n2">Options to consider</div><ul class="opt">' + x.options.map(function (o) { return "<li>" + h(o) + "</li>"; }).join("") + "</ul>" + (x.cite ? '<span class="cite">' + ic("book", 13) + h(x.cite) + "</span>" : "") + (x.q ? '<button class="lnk sm" data-a="rxfind" data-v="' + i + '" style="display:block;margin-top:6px">Find cases on this ' + ic("chev", 13) + "</button>" : "") + "</div>"; }).join("");
     return header("Review a filing", (r.side === "ours" ? "Our " : "Their ") + R.kind, "", true) + '<main class="enter">' +
@@ -534,6 +574,22 @@
   }
 
   /* ---------- views ---------- */
+  /* The bottom bar lives outside the redrawn page, so it never flickers or shifts when you switch tabs. */
+  var navHost = document.createElement("div"); navHost.id = "navhost"; document.body.appendChild(navHost);
+  function syncNav(show) {
+    if (!show) { navHost.style.display = "none"; return; }
+    navHost.style.display = "";
+    if (!navHost.firstChild) { navHost.innerHTML = navBar(); return; }
+    var f = cur(), empty = !f || !f.files.length;
+    [].forEach.call(navHost.querySelectorAll("[data-a=tab]"), function (b) { b.className = b.getAttribute("data-v") === st.tab ? "on" : ""; });
+    var fab = navHost.querySelector(".fab"); if (fab) fab.classList.toggle("pulse", empty);
+  }
+  navHost.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-a]"); if (!el) return;
+    var a = el.getAttribute("data-a");
+    if (a === "tab") { var nt = el.getAttribute("data-v"); if (nt !== st.tab || st.screen) { st.tab = nt; st.screen = null; render(); window.scrollTo(0, 0); } return; }
+    if (a === "add") return addSheet();
+  });
   function navBar() {
     var t = st.tab, f = cur(), empty = !f || !f.files.length;
     function b(id, icon, label) { return '<button data-a="tab" data-v="' + id + '" class="' + (t === id ? "on" : "") + '">' + ic(icon) + label + "</button>"; }
@@ -767,8 +823,10 @@
       '<div class="sec"><b>Redaction list</b></div><div class="glass" style="border-radius:24px;padding:14px"><textarea class="inp" id="custom" rows="3" placeholder="One per line: client names, project code names, prices">' + h((S.custom || []).join("\n")) + '</textarea><button class="btn2 glass mt" data-a="scustom">Save list</button></div>' +
       '<div class="sec"><b>Firm settings</b></div><div class="glass list">' + li("sexport", "Share firm settings file", "Practice, court, size limits, redaction list, exhibit and Bates style") + li("simport", "Load a firm settings file", "Use the same setup as your team") + "</div>" +
       '<div class="sec"><b>Online research (optional)</b></div><div class="glass list">' + ['courtlistener', 'uspto'].map(function (kk) { var r = rkey(kk), nm = kk === 'uspto' ? 'USPTO key' : 'CourtListener key'; return li('skey" data-v="' + kk, nm, r ? (r.own ? 'Your own key' : 'Built-in key') + ' · tap to use your own' : 'Not set · tap to add'); }).join('') + li('skeyhelp" data-v="courtlistener', 'Get a free CourtListener key', 'courtlistener.com') + li('skeyhelp" data-v="uspto', 'Get a USPTO key', 'Needs a USPTO.gov account with two-step login') + '</div>' +
+      licRow() +
+      '<div class="sec"><b>Research examples</b></div><div class="glass list">' + li('sexs', 'Show example prompts', 'Fictional examples on Review a filing and Similar cases', '<span class="tg' + (S.hideEx ? ' off' : '') + '"></span>') + '</div>' +
       '<div class="sec"><b>Labs</b></div><div class="glass list">' + li('slabs', 'Patent check (Labs)', 'Early tool for patent firms. Off by default.', '<span class="tg' + (S.labs ? '' : ' off') + '"></span>') + '</div>' +
-      '<div class="sec"><b>Security and look</b></div><div class="glass list">' + li("spin", S.pin ? "Change PIN" : "Set a PIN lock", S.pin ? "Locks when opened and after 2 minutes away" : "Recommended for client files") + (S.pin ? li("spinoff", "Turn off lock", "") : "") +
+      '<div class="sec"><b>Security and look</b></div><div class="glass list">' + li("spin", S.pin ? "Change PIN" : "Set a PIN lock", S.pin ? "Locks when opened and after 2 minutes away" : "Optional · recommended for client files") + (S.pin ? li("spinoff", "Remove PIN", "Open the app without a PIN (asks for your current PIN first)") : "") +
       li("sstyle", "Aurora style", "Animated glow look (dark mode)", tgl("", S.style !== "classic")) + li("stheme", "Light mode", "", tgl("", S.theme === "light")) + li("sbig", "Large text", "", tgl("", S.big)) + "</div>" +
       '<div class="sec"><b>Help</b></div><div class="glass list">' + li("guide", "Interactive guide", "Step-by-step walkthrough") + li("demo\" data-v=\"court", "Load court demo", "Fictional filing with common problems") + li("demo\" data-v=\"deal", "Load deal demo", "Fictional purchase agreement and signature pages") + li("site", "FileReady website", "") + li("reset", "Delete all data on this device", "Filings, files and settings") + "</div>" +
       '<p class="disc">Everything runs on this device. FileReady flags common filing and contract problems; it is not legal advice and does not guarantee a court will accept a filing. Built by Mark Joseph.</p></main>';
@@ -777,11 +835,11 @@
   function viewLock() {
     var dots = ""; for (var i = 0; i < 4; i++) dots += "<i" + (st.pin.length > i ? ' class="f"' : "") + "></i>";
     var keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, "bio", 0, "del"].map(function (k) { return k === "bio" ? "<span></span>" : k === "del" ? '<button data-a="pdel1" aria-label="Delete">' + ic("back", 24) + "</button>" : '<button class="glass" data-a="pk" data-v="' + k + '">' + k + "</button>"; }).join("");
-    return '<div class="lock enter"><div class="logo">' + logo(96) + '</div><h2 style="margin:0">FileReady</h2><p class="mut sm">' + (st.setPin ? (st.setPin === 1 ? "Choose a 4-digit PIN" : "Enter it again") : "Enter your PIN") + '</p><div class="dots">' + dots + '</div><div class="pad">' + keys + "</div>" + (st.setPin ? '<button class="mbtn mt2" data-a="pincancel">Cancel</button>' : "") + "</div>";
+    return '<div class="lock enter"><div class="logo">' + logo(96) + '</div><h2 style="margin:0">FileReady</h2><p class="mut sm">' + (st.setPin === 3 ? "Enter your current PIN to remove it" : st.setPin ? (st.setPin === 1 ? "Choose a 4-digit PIN" : "Enter it again") : "Enter your PIN") + '</p><div class="dots">' + dots + '</div><div class="pad">' + keys + "</div>" + (st.setPin ? '<button class="mbtn mt2" data-a="pincancel">Cancel</button>' : '<button class="mbtn mt2" data-a="pinforgot">Forgot PIN?</button>') + "</div>";
   }
   var SLIDES = [
     ["Every filing,<br>court-ready.", "FileReady checks PDFs before you file or send them: hidden text under black boxes, Social Security numbers, blank and sideways pages, size limits and more.", "ring"],
-    ["Private by design.", "Your documents never leave this device. No accounts, no uploads, no cloud. Lock the app with a PIN.", "lock"],
+    ["Private by design.", "Your documents never leave this device. No accounts, no uploads, no cloud. Add a PIN lock if you want one.", "lock"],
     ["Rules for all 50 states.", "Federal courts, every state and D.C., the USPTO, and data-protection checks for 8 regions, each linked to its source. Plus contract, binder and signature-packet tools for deal work.", "globe"]
   ];
   function viewOnb() {
@@ -869,19 +927,20 @@
     var html;
     /* Animate only when the screen changes, not on every tap (stops the shaking on the PIN pad, toggles and lists). */
     var key = !S.onboarded ? "onb" + st.onb : (S.pin && !st.unlocked) || st.setPin ? "lock" + (st.setPin || 0) : st.busy ? "busy" : (st.screen || "") + "|" + st.tab + "|" + st.fid;
-    var still = key === lastKey && !animate; lastKey = key;
+    var still = key === lastKey && !animate, showNav = false; lastKey = key;
     root.classList.toggle("still", still);
     if (!S.onboarded) html = viewOnb();
     else if ((S.pin && !st.unlocked) || st.setPin) html = viewLock();
-    else if (st.busy) html = busyView() + navBar();
+    else if (st.busy) { html = busyView(); showNav = true; }
     else {
       var s = st.screen;
       html = (s === "issues" ? viewIssues() : s === "viewer" ? viewViewer() : s === "pages" ? viewPages() : s === "search" ? viewSearch() : s === "rules" ? viewRules() : s === "built" ? viewBuilt() : s === "ready" ? viewReady() : s === "packets" ? viewPackets() : s === "checklist" ? viewChecklist() : s === "research" ? viewResearch() : s === "rxpat" ? viewPatent() : s === "rxcase" ? viewCases() : s === "rxrev" ? viewReview() : s === "rxread" ? viewReader() : s === "compare" ? viewCompare() :
-        st.tab === "files" ? viewFiles() : st.tab === "exhibits" ? viewBuild() : st.tab === "settings" ? viewSettings() : viewHome()) + navBar();
+        st.tab === "files" ? viewFiles() : st.tab === "exhibits" ? viewBuild() : st.tab === "settings" ? viewSettings() : viewHome()); showNav = true;
     }
     if (IOS && !STANDALONE && !window.Capacitor && S.onboarded && !(S.pin && !st.unlocked) && !st.setPin && !st.screen && st.tab === "check" && !st.busy && !(function () { try { return localStorage.getItem("fr.iosTip"); } catch (e) { return 1; } })())
       html += '<div class="iostip glass"><span class="ic gG">' + ic("share", 18, "#04140b") + '</span><div><b>Install on your iPhone</b><small>Tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>. FileReady then opens like an app and works offline.</small></div><button data-a="iostip" aria-label="Close">' + ic("x", 18) + "</button></div>";
     root.innerHTML = html;
+    syncNav(showNav);
     requestAnimationFrame(function () {
       [].forEach.call(root.querySelectorAll(".arc"), function (a) { if (still) a.style.transition = "none"; a.style.strokeDashoffset = a.getAttribute("data-to"); });
       [].forEach.call(root.querySelectorAll("[data-count]"), function (el) {
@@ -927,6 +986,9 @@
     if (a === "redline") return saveRedline();
     if (a === "sexport") return exportSettings();
     if (a === "simport") return setPicker.click();
+    if (a === "slic") return inputSheet("License code", "", "Paste the code you received (starts with FR1.)", async function (nv) { nv = nv.trim(); if (!nv) return; try { var L = await verifyLicense(nv); S.license = nv; saveS(); st.lic = L; buzz("ok"); render(); toast(L.expired ? "This license has expired (" + L.until + ")" : "Licensed to " + L.firm + " until " + L.until); } catch (e) { toast(e.message || "This code is not valid"); } });
+    if (a === "slicoff") { S.license = ""; st.lic = null; saveS(); render(); toast("License code removed"); return; }
+    if (a === "sexs") { S.hideEx = !S.hideEx; saveS(); render(); return; }
     if (a === "slabs") { S.labs = !S.labs; saveS(); buzz(); render(); toast(S.labs ? "Patent check turned on under Research" : "Patent check hidden"); return; }
     if (a === "research") { st.screen = "research"; render(); return; }
     if (a === "rxpat" || a === "rxcase" || a === "rxrev") { if (st.screen === "rxrev" && a === "rxrev") return rxRead("rev"); st.rx = { side: "theirs" }; st.screen = a; render(); return; }
@@ -939,6 +1001,9 @@
     if (a === "rxgp") { var ad = document.getElementById("rxadd"); if (ad && ad.value.trim()) st.rx.pat.keys.push(ad.value.trim()); return openUrl(X.googlePatentsUrl(st.rx.pat.keys)); }
     if (a === "rxcl") { var qq = document.getElementById("rxq"); if (qq) st.rx.cs.q = qq.value; return openUrl(X.courtListenerUrl(st.rx.cs.q, st.rx.court || "")); }
     if (a === "rxopen") return openUrl(v);
+    if (a === "rxex") { var tx = document.getElementById("rxt"), fsel = document.getElementById("rxf"), ex = RX_EX[st.screen] && RX_EX[st.screen][+v]; if (!ex || !tx) return; st.rx = st.rx || {}; st.rx.text = ex[1]; st.rx.file = ""; if (fsel) fsel.value = ""; if (st.screen === "rxrev") st.rx.side = /^Our/.test(ex[0]) ? "ours" : "theirs"; render(); return; }
+    if (a === "rxclear") { st.rx = st.rx || {}; st.rx.text = ""; var t2 = document.getElementById("rxt"); if (t2) { t2.value = ""; t2.focus(); } return; }
+    if (a === "rxexhide" || a === "rxexshow") { var t3 = document.getElementById("rxt"), f3 = document.getElementById("rxf"); st.rx = st.rx || {}; if (t3) st.rx.text = t3.value; if (f3) st.rx.file = f3.value; S.hideEx = a === "rxexhide"; saveS(); render(); return; }
     if (a === "rxpread1") return rxOpenPatent(+v);
     if (a === "rxcread1") return rxOpenCase(+v);
     if (a === "rxcopy") { var cc = st.rx.doc.cite || ""; try { await navigator.clipboard.writeText(cc); toast("Citation copied"); } catch (e) { inputSheet("Citation", cc, "", function () { }); } return; }
@@ -990,7 +1055,8 @@
     if (a === "sfonts") { S.over.fonts = !prof().fonts; saveS(); recheck(); return; }
     if (a === "scustom") { S.custom = (document.getElementById("custom").value || "").split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 60); saveS(); toast("Redaction list saved"); recheck(); return; }
     if (a === "spin") { st.setPin = 1; st.pin = ""; render(); return; }
-    if (a === "spinoff") { S.pin = ""; saveS(); toast("Lock turned off"); render(); return; }
+    if (a === "spinoff") { st.setPin = 3; st.pin = ""; render(); return; }
+    if (a === "pinforgot") return confirmSheet("Forgot your PIN? The only way back in is to erase FileReady on this device: every filing, file and setting. Erase it?", async function () { for (var s2 of ["filings", "blobs", "an"]) await tx(s2, "readwrite", function (o) { o.clear(); }); try { localStorage.removeItem("fr.settings"); localStorage.removeItem("fr.lock"); } catch (e) { } location.reload(); });
     if (a === "sstyle") { S.style = S.style === "classic" ? "aurora" : "classic"; saveS(); applyLook(); render(); return; }
     if (a === "stheme") { S.theme = S.theme === "light" ? "dark" : "light"; saveS(); applyLook(); render(); return; }
     if (a === "sbig") { S.big = !S.big; saveS(); applyLook(); render(); return; }
@@ -1052,6 +1118,7 @@
   async function pinDone() {
     var p = st.pin; st.pin = "";
     if (!(window.crypto && crypto.subtle)) { toast("This browser cannot store a PIN safely. Use the Android app or a secure (https) page."); render(); return; }
+    if (st.setPin === 3) { var Lr = lockState(); if (Lr.until && Date.now() < Lr.until) { toast("Too many tries. Wait " + Math.ceil((Lr.until - Date.now()) / 1000) + " seconds."); render(); return; } if (await pinOk(p)) { S.pin = ""; saveS(); setLockState({}); st.setPin = 0; buzz("ok"); toast("PIN removed"); } else { Lr.n = (Lr.n || 0) + 1; if (Lr.n >= 5) Lr.until = Date.now() + Math.min(3600, 30 * Math.pow(2, Lr.n - 5)) * 1000; setLockState(Lr); buzz(); toast("Wrong PIN"); } render(); return; }
     if (st.setPin === 1) { st.firstPin = p; st.setPin = 2; render(); return; }
     if (st.setPin === 2) { if (p === st.firstPin) { S.pin = await pinHash(p); st.firstPin = ""; saveS(); setLockState({}); st.setPin = 0; st.unlocked = true; buzz("ok"); toast("PIN set"); } else { st.setPin = 1; st.firstPin = ""; toast("PINs did not match. Try again."); } render(); return; }
     var L = lockState(), now = Date.now();

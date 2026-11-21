@@ -262,3 +262,6 @@ textarea.inp{resize:vertical;min-height:96px;line-height:1.45}
 html.light .reader{font-family:Georgia,"Times New Roman",serif}
 .beta{display:inline-block;margin-left:8px;vertical-align:2px;font-size:.6rem;font-weight:800;letter-spacing:.6px;padding:3px 7px;border-radius:7px;background:rgba(124,140,255,.18);color:#c7cdff}
 html.light .beta{color:#4a59e0;background:rgba(91,108,255,.12)}
+html{scrollbar-gutter:stable}
+#navhost{position:relative;z-index:20}
+.exs{margin:6px 0 2px}.exs .chip{font-size:.78rem;padding:7px 11px}

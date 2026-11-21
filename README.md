@@ -5,7 +5,7 @@
 
 <p align="center"><img src="guide-home.jpg" width="230"> <img src="guide-packets.jpg" width="230"> <img src="guide-checklist.jpg" width="230"></p>
 
-**iPhone:** open the web app in Safari → **Share** → **Add to Home Screen**.
+**Android:** install `fileready.apk` from Releases (Android 8 or newer). **iPhone:** open the web app in Safari → **Share** → **Add to Home Screen**.
 
 FileReady checks PDFs before they are filed or sent, fixes what it can, and builds the final package. Everything runs on the device: no account, no uploads.
 
@@ -17,7 +17,8 @@ FileReady checks PDFs before they are filed or sent, fixes what it can, and buil
 - **Closing tools:** signed pages put back into the final documents, and a closing checklist linked to the binder tabs.
 - **Word, scans and versions:** Word (.docx) checks and cleanup, text recognition for scanned pages, compare two versions with a redline PDF.
 - **Firm settings:** export one settings file and share it so the whole firm uses the same rules.
-- **Research (Beta):** review the other side's filing (or yours) for common mistakes with options and rule citations, and find similar court cases. Patent check is a Labs tool, off by default (Settings → Labs).
+- **License codes:** firms pay directly; a signed code entered in Settings → License shows the firm and seats. Codes are made with the "Make license code" GitHub workflow.
+- **Research (Beta):** review the other side's filing (or yours) for common mistakes with options and rule citations, and find similar court cases. Patent check is a Labs tool, off by default (Settings → Labs); it needs a free USPTO Open Data Portal key.
 - **Rules:** all 50 states and D.C., federal courts, the USPTO, and data-protection flags for eight regions, each linked to its official source.
 
 ## Security

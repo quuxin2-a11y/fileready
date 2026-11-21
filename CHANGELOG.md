@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1 (November 2026)
+- Bottom bar no longer redraws or shifts when switching tabs; pages open at the top.
+- Example prompts (fictional) on Review a filing and Similar cases, with Clear text and Hide examples (also in Settings).
+- License codes: Settings → License; codes are signed by the "Make license code" workflow and checked on the device.
+- PIN is optional: Remove PIN (asks for the current PIN) and Forgot PIN (erases the app's data on this device).
+- Guide and business plan: USPTO patent check availability (Labs), how firms pay.
+
 ## 1.3.0 (November 2026)
 - Focus: Review a filing and Similar cases are marked Beta; Patent check is hidden behind Settings → Labs (off by default). Business plan adds a Focus now section: feature freeze, phone testing, three pilot firms.
 - Research: Patent check before filing (finds published U.S. patents and applications with similar wording, with an overlap score, plus timing rules and options), Similar cases (finds court opinions on CourtListener from your description or document), and Review a filing (finds common mistakes in the other side's filing or your own, with options to consider and rule citations, and a link to search cases on each).
